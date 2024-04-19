@@ -1,3 +1,8 @@
+
+#Parameters
+params<-list(convers_MWh_KWh = 1000)
+
+# Load libraries
 library(tidyr)
 library(ggplot2)
 library(gridExtra)
@@ -41,8 +46,12 @@ data$ET_BC3_Frio <- as.numeric(data$ET_BC3_Frio)
 data$ET_BC3_Calor <- as.numeric(data$ET_BC3_Calor)
 
 # Convert energy values from MWh to kWh
-data[, c("ET_BC1_Frio", "ET_BC1_Calor", "ET_BC2_Frio", "ET_BC2_Calor", "ET_BC3_Frio", "ET_BC3_Calor")] <- 
-  data[, c("ET_BC1_Frio", "ET_BC1_Calor", "ET_BC2_Frio", "ET_BC2_Calor", "ET_BC3_Frio", "ET_BC3_Calor")] * 1000
+data[, c("ET_BC1_Frio", "ET_BC1_Calor",
+         "ET_BC2_Frio", "ET_BC2_Calor",
+         "ET_BC3_Frio", "ET_BC3_Calor")] <-
+  data[, c("ET_BC1_Frio", "ET_BC1_Calor",
+           "ET_BC2_Frio", "ET_BC2_Calor",
+           "ET_BC3_Frio", "ET_BC3_Calor")] * params[["convers_MWh_KWh"]]
 
 
 # Remove rows with NA values in the 'Date' column
