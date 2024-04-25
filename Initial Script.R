@@ -3,6 +3,7 @@ library(ggplot2)
 library(gridExtra)
 library(dplyr)
 
+
 # Set working directory and data directory
 WD <- getwd()
 DIR_DATA <- file.path(WD, "data")
@@ -205,7 +206,7 @@ for (prefix in prefixes) {
     geom_point() +
     labs(x = "Day of the Week", y = paste("EE_", prefix, "(kwh)"), title = paste("Daily EE_", prefix)) +
     theme_minimal() +
-    theme(axis.text.x = element_text(size = 8))  # Adjust the font size of x-axis text
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
   
   # Plot ET_Frio_actual vs Day of the week
   daily_plots$ET_Frio <- ggplot(hourly_data, aes(x = DayOfWeek,
@@ -215,14 +216,14 @@ for (prefix in prefixes) {
     labs(x = "Day of the Week", y = paste("ET_", prefix, "_Frio(kwh)"), title =
            paste("Daily ET_", prefix, "_Frio")) +
     theme_minimal() +
-    theme(axis.text.x = element_text(size = 8))  # Adjust the font size of x-axis text
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
   
   # Plot ET_Calor_actual vs Day of the week
   daily_plots$ET_Calor <- ggplot(hourly_data, aes(x = DayOfWeek, y = !!sym(paste0("ET_", prefix, "_Calor_daily")))) +
     geom_point() +
     labs(x = "Day of the Week", y = paste("ET_", prefix, "_Calor(kwh)"), title = paste("Daily ET_", prefix, "_Calor")) +
     theme_minimal() +
-    theme(axis.text.x = element_text(size = 8))  # Adjust the font size of x-axis text
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
   
   # Store the side-by-side plot in a variable
   side_by_side_plot <- gridExtra::grid.arrange(daily_plots$EE, daily_plots$ET_Frio, daily_plots$ET_Calor, ncol = 3)
@@ -297,7 +298,8 @@ plot_and_save_hourly_cop <- function(data, variable_name, plot_title, plot_dir) 
     geom_point() +
     labs(x = "Hour", y = plot_title, title = paste("Hourly", plot_title)) +
     theme_minimal() +
-    theme(panel.background = element_rect(fill = "white"))
+    theme(panel.background = element_rect(fill = "white")) +
+    ylim(0, 10)  # Set y-axis limits from 1 to 10
   
   # Print the plot
   print(plot)
@@ -318,7 +320,7 @@ plot_and_save_hourly_cop(data, COP_BC3, "COP_BC3", plot_dir)
 # function to plot and save COP vs day of the week
 plot_and_save_daily_cop <- function(data, variable_name, plot_title, plot_dir) {
   # Extract day of the week from Date column
-  data$DayOfWeek <- weekdays(data$Date)
+  data$DayOfWeek <- factor(weekdays(data$Date), levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
   
   # Aggregate data by day of the week
   daily_data <- data %>%
@@ -330,7 +332,8 @@ plot_and_save_daily_cop <- function(data, variable_name, plot_title, plot_dir) {
     geom_point() +
     labs(x = "Day of the Week", y = plot_title, title = paste("Daily", plot_title)) +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
+    ylim(0, 10)  # Set y-axis limits from 1 to 10
   
   # Print the plot
   print(plot)
@@ -347,7 +350,6 @@ plot_and_save_daily_cop(data, COP_BC2, "COP_BC2", plot_dir)
 
 # Call the function for COP_BC3
 plot_and_save_daily_cop(data, COP_BC3, "COP_BC3", plot_dir)
-
 
 #comparison of heat pumps hourly energy consumption
 # Reshape data into long format
