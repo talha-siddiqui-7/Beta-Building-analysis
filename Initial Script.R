@@ -2,6 +2,8 @@ library(tidyr)
 library(ggplot2)
 library(gridExtra)
 library(dplyr)
+library(lubridate)
+library(magrittr)
 
 # Set working directory and data directory
 WD <- getwd()
@@ -31,10 +33,6 @@ if (length(weather_file_list) == 0) {
 
 # Remove NA values from the dataset
 data <- na.omit(data)
-# Replace negative values with 0 for heat pump 3
-data <- mutate(data, EE_BC3_actual = ifelse(EE_BC3_actual < 0, 0, EE_BC3_actual),
-               EE_BC3_Frio_actual = ifelse(EE_BC3_Frio_actual < 0, 0, EE_BC3_Frio_actual),
-               EE_BC3_Calor_actual = ifelse(EE_BC3_Calor_actual < 0, 0, EE_BC3_Calor_actual))
 
 
 #Making Daily plots of all heat pumps against EE,ET_Frio,ET_Calor
@@ -78,6 +76,7 @@ process_heat_pump <- function(data, prefix) {
 
   return(data)
 }
+
 
 # function to plot and save images for a specific heat pump
 plot_and_save_image <- function(data, prefix, plot_dir) {
@@ -361,19 +360,20 @@ plot_and_save_daily_cop(data, COP_BC2, "COP_BC2", plot_dir)
 plot_and_save_daily_cop(data, COP_BC3, "COP_BC3", plot_dir)
 
 #comparison of heat pumps hourly energy consumption
-# Reshape data into long format
-hourly_data_long <- tidyr::pivot_longer(hourly_data, cols = starts_with("EE_BC"),
-                                        names_to = "HeatPump", values_to = "EE_actual")
+# Reshape data into longer format for hourly comparison
+hourly_data_long <- data %>%
+  select(Hour, EE_BC1_actual, EE_BC2_actual) %>%  # Select Hour and the columns to compare
+  pivot_longer(cols = -Hour, names_to = "HeatPump", values_to = "Energy_Consumption")
 
 # Plot hourly data for EE_BC1 and EE_BC2
-hourly_plot_comparison <- ggplot(hourly_data_long, aes(x = Hour, y = EE_actual, color = HeatPump)) +
+hourly_plot_comparison <- ggplot(hourly_data_long, aes(x = Hour, y = Energy_Consumption, color = HeatPump)) +
   geom_point() +
-  labs(x = "Hour", y = "Energy Consumption(kwh)", title = "Hourly Energy Consumption for Heat Pumps") +
+  labs(x = "Hour", y = "Energy Consumption(kwh)", title = "Hourly Energy Consumption by Heat Pumps comparision") +
   scale_color_manual(values = c("blue", "red")) +  # Set colors for each heat pump
   theme_minimal()
 
 # Save the plot as a PNG file
-ggsave(file.path(plot_dir, "COP_BC2_hourly.png"), hourly_plot_comparison)
+ggsave(file.path(plot_dir, "hourly_E_Consumption_comparision.png"), hourly_plot_comparison)
 
 print(hourly_plot_comparison)
 
@@ -387,12 +387,12 @@ data_long <- data %>%
 # Plot EE_BC1_actual and EE_BC2_actual against Date with different colors
 daily_plot_comparison <- ggplot(data_long, aes(x = Date, y = Energy_Consumption, color = HeatPump)) +
   geom_point() +
-  labs(x = "Date", y = "Energy Consumption(kwh)", title = "Energy Consumption vs Date by Heat Pump") +
+  labs(x = "Date", y = "Energy Consumption(kwh)", title = "Daily Energy Consumption by Heat Pumps comparision") +
   scale_color_manual(values = c("red", "blue")) +  # Set colors for each heat pump
   theme_minimal()
 
 # Save the plot as a PNG file
-ggsave(file.path(plot_dir, "COP_BC2_hourly.png"), daily_plot_comparison)
+ggsave(file.path(plot_dir, "daily_E_Consumption_comparision.png"), daily_plot_comparison)
 
 print(daily_plot_comparison)
 
@@ -478,45 +478,49 @@ daily_avg_ET_df <- data.frame(Date = as.Date(daily_avg_ET$Date),
 energy_signature_data <- merge(daily_avg_ET_df, daily_avg_temp, by.x = "Date", by.y = "Dia", all.x = TRUE)
 
 # Function to create and save a plot
-create_and_save_plot <- function(plot, filename) {
-  ggsave(filename, plot)
+create_and_save_plot <- function(plot, filename, plot_dir) {
+  ggsave(file.path(plot_dir, filename), plot)
   print(plot)
 }
 
 # Plot Avg_ET vs HDD
-plot_hdd_vs_avg_et <- create_plot(energy_signature_data, "HDD", "Avg_ET",
-                                  "HDD", "Load (Kwh)", "Avg_ET vs HDD") +
-  geom_smooth(method = "lm", se = FALSE)
-create_and_save_plot(plot_hdd_vs_avg_et, "plot_hdd_vs_avg_et.png")
+plot_hdd_vs_avg_et <- ggplot(energy_signature_data, aes(x = HDD, y = Avg_ET)) +
+  geom_point() +
+  labs(x = "HDD", y = "Avg_ET", title = "Avg_ET vs HDD")
+
+create_and_save_plot(plot_hdd_vs_avg_et, "plot_hdd_vs_avg_et.png", plot_dir)
 
 # Plot Avg_ET vs CDD
-plot_cdd_vs_avg_et <- create_plot(energy_signature_data, "CDD", "Avg_ET",
-                                  "CDD", "Load (Kwh)", "Avg_ET vs CDD") +
-  geom_smooth(method = "lm", se = FALSE)
-create_and_save_plot(plot_cdd_vs_avg_et, "plot_cdd_vs_avg_et.png")
+plot_cdd_vs_avg_et <- ggplot(energy_signature_data, aes(x = CDD, y = Avg_ET)) +
+  geom_point() +
+  labs(x = "CDD", y = "Avg_ET", title = "Avg_ET vs CDD")
 
-# Plot Heat Pump 1 Load vs HDD with the same y-axis limits as Heat Pump 2 Load vs HDD
-plot_hp1_hdd <- create_plot(energy_signature_data, "HDD", "Heat_Pump1_Load",
-                            "HDD", "Heat Pump 1 Load", "Heat Pump 1 Load vs HDD") +
-  geom_smooth(method = "lm", se = FALSE) +
-  coord_cartesian(ylim = layer_scales(plot_hp2_hdd)$y$range$range)
-create_and_save_plot(plot_hp1_hdd, "plot_hp1_hdd.png")
+create_and_save_plot(plot_cdd_vs_avg_et, "plot_cdd_vs_avg_et.png", plot_dir)
+
+# Plot Heat Pump 1 Load vs HDD
+plot_hp1_hdd <- ggplot(energy_signature_data, aes(x = HDD, y = Heat_Pump1_Load)) +
+  geom_point() +
+  labs(x = "HDD", y = "Heat_Pump1_Load", title = "Heat Pump 1 Load vs HDD")
+
+create_and_save_plot(plot_hp1_hdd, "plot_hp1_hdd.png", plot_dir)
 
 # Plot Heat Pump 1 Load vs CDD
-plot_hp1_cdd <- create_plot(energy_signature_data, "CDD", "Heat_Pump1_Load",
-                            "CDD", "Heat Pump 1 Load", "Heat Pump 1 Load vs CDD") +
-  geom_smooth(method = "lm", se = FALSE)
-create_and_save_plot(plot_hp1_cdd, "plot_hp1_cdd.png")
+plot_hp1_cdd <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump1_Load)) +
+  geom_point() +
+  labs(x = "CDD", y = "Heat_Pump1_Load", title = "Heat Pump 1 Load vs CDD")
+
+create_and_save_plot(plot_hp1_cdd, "plot_hp1_cdd.png", plot_dir)
 
 # Plot Heat Pump 2 Load vs HDD
-plot_hp2_hdd <- create_plot(energy_signature_data, "HDD", "Heat_Pump2_Load",
-                            "HDD", "Heat Pump 2 Load", "Heat Pump 2 Load vs HDD") +
-  geom_smooth(method = "lm", se = FALSE)
-create_and_save_plot(plot_hp2_hdd, "plot_hp2_hdd.png")
+plot_hp2_hdd <- ggplot(energy_signature_data, aes(x = HDD, y = Heat_Pump2_Load)) +
+  geom_point() +
+  labs(x = "HDD", y = "Heat_Pump2_Load", title = "Heat Pump 2 Load vs HDD")
+
+create_and_save_plot(plot_hp2_hdd, "plot_hp2_hdd.png", plot_dir)
 
 # Plot Heat Pump 2 Load vs CDD
-plot_hp2_cdd <- create_plot(energy_signature_data, "CDD", "Heat_Pump2_Load",
-                            "CDD", "Heat Pump 2 Load", "Heat Pump 2 Load vs CDD") +
-  geom_smooth(method = "lm", se = FALSE)
-create_and_save_plot(plot_hp2_cdd, "plot_hp2_cdd.png")
+plot_hp2_cdd <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump2_Load)) +
+  geom_point() +
+  labs(x = "CDD", y = "Heat_Pump2_Load", title = "Heat Pump 2 Load vs CDD")
 
+create_and_save_plot(plot_hp2_cdd, "plot_hp2_cdd.png", plot_dir)
