@@ -133,30 +133,42 @@ prefixes <- c("BC1", "BC2", "BC3")
 # Create an empty list to store the plots
 all_plots <- list()
 
+# Create an empty data frame to store the total_hourly_thermal_load
+total_hourly_thermal_load <- data.frame(Hour = 0:23, Heat_Pump_1 = numeric(24), Heat_Pump_2 = numeric(24))
+
 # Iterate over each prefix
 for (prefix in prefixes) {
   # Extract hour from Date column
   data$Hour <- as.numeric(format(data$Date, "%H"))
-
+  
   # Aggregate data by Hour
   hourly_data <- data %>%
     group_by(Hour) %>%
-    summarize(!!paste0("EE_", prefix, "_hourly") :=
-                mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
-              !!paste0("ET_", prefix, "_Frio_hourly") :=
-                mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
-              !!paste0("ET_", prefix, "_Calor_hourly") :=
-                mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE))
-
+    summarize(
+      !!paste0("EE_", prefix, "_hourly") :=
+        mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
+      !!paste0("ET_", prefix, "_Frio_hourly") :=
+        mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
+      !!paste0("ET_", prefix, "_Calor_hourly") :=
+        mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE)
+    )
+  
+  # Calculate total thermal load for Heat Pump 1 and Heat Pump 2
+  if (prefix == "BC1") {
+    total_hourly_thermal_load$Heat_Pump_1 <- hourly_data$ET_BC1_Frio_hourly + hourly_data$ET_BC1_Calor_hourly
+  } else if (prefix == "BC2") {
+    total_hourly_thermal_load$Heat_Pump_2 <- hourly_data$ET_BC2_Frio_hourly + hourly_data$ET_BC2_Calor_hourly
+  }
+  
   # Plot hourly data
   hourly_plots <- list()
-
+  
   # Plot EE_actual vs Hour
   hourly_plots$EE <- ggplot(hourly_data, aes(x = Hour, y = !!sym(paste0("EE_", prefix, "_hourly")))) +
     geom_point() +
     labs(x = "Hour", y = paste("EE_", prefix, "(kwh)"), title = paste("Hourly EE_", prefix)) +
     theme_minimal()
-
+  
   # Plot ET_Frio_actual vs Hour
   hourly_plots$ET_Frio <- ggplot(hourly_data, aes(x = Hour,
                                                   y = !!sym(paste0("ET_", prefix,
@@ -165,16 +177,16 @@ for (prefix in prefixes) {
     labs(x = "Hour", y = paste("ET_", prefix, "_Frio(kwh)"), title =
            paste("Hourly ET_", prefix, "_Frio")) +
     theme_minimal()
-
+  
   # Plot ET_Calor_actual vs Hour
   hourly_plots$ET_Calor <- ggplot(hourly_data, aes(x = Hour, y = !!sym(paste0("ET_", prefix, "_Calor_hourly")))) +
     geom_point() +
     labs(x = "Hour", y = paste("ET_", prefix, "_Calor(kwh)"), title = paste("Hourly ET_", prefix, "_Calor")) +
     theme_minimal()
-
+  
   # Store the side-by-side plot in a variable
   side_by_side_plot <- gridExtra::grid.arrange(hourly_plots$EE, hourly_plots$ET_Frio, hourly_plots$ET_Calor, ncol = 3)
-
+  
   # Store the plot in the list
   all_plots[[prefix]] <- side_by_side_plot
 }
@@ -184,58 +196,71 @@ for (i in 1:length(prefixes)) {
   ggsave(file.path(plot_dir, paste("EE_", prefixes[i], "_and_ET_", prefixes[i], "_plots.png")), all_plots[[i]])
 }
 
-# Function for day of the week plots against EE_BC,ET_BC_Frio,EE_BC_Calor
 # Define a vector of prefixes
 prefixes <- c("BC1", "BC2", "BC3")
 
 # Create an empty list to store the plots
 all_plots <- list()
 
+# Create an empty data frame to store the total_daily_thermal_load
+total_daily_thermal_load <- data.frame(DayOfWeek = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"),
+                                       Heat_Pump_1 = numeric(7),
+                                       Heat_Pump_2 = numeric(7))
+
 # Iterate over each prefix
 for (prefix in prefixes) {
   # Extract day of the week from Date column
   data$DayOfWeek <- wday(data$Date, label = TRUE)
-
+  
   # Aggregate data by day of the week
-  hourly_data <- data %>%
+  daily_data <- data %>%
     group_by(DayOfWeek) %>%
-    summarize(!!paste0("EE_", prefix, "_daily") :=
-                mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
-              !!paste0("ET_", prefix, "_Frio_daily") :=
-                mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
-              !!paste0("ET_", prefix, "_Calor_daily") :=
-                mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE))
-
+    summarize(
+      !!paste0("EE_", prefix, "_daily") :=
+        mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
+      !!paste0("ET_", prefix, "_Frio_daily") :=
+        mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
+      !!paste0("ET_", prefix, "_Calor_daily") :=
+        mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE)
+    )
+  
+  # Calculate total thermal load for Heat Pump 1 and Heat Pump 2
+  if (prefix == "BC1") {
+    total_daily_thermal_load$Heat_Pump_1 <- daily_data$ET_BC1_Frio_daily + daily_data$ET_BC1_Calor_daily
+  } else if (prefix == "BC2") {
+    total_daily_thermal_load$Heat_Pump_2 <- daily_data$ET_BC2_Frio_daily + daily_data$ET_BC2_Calor_daily
+  }
+  
   # Plot daily data
   daily_plots <- list()
-
+  
   # Plot EE_actual vs Day of the week
-  daily_plots$EE <- ggplot(hourly_data, aes(x = DayOfWeek, y = !!sym(paste0("EE_", prefix, "_daily")))) +
+  daily_plots$EE <- ggplot(daily_data, aes(x = DayOfWeek, y = !!sym(paste0("EE_", prefix, "_daily")))) +
     geom_point() +
     labs(x = "Day of the Week", y = paste("EE_", prefix, "(kwh)"), title = paste("Daily EE_", prefix)) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
-
+  
   # Plot ET_Frio_actual vs Day of the week
-  daily_plots$ET_Frio <- ggplot(hourly_data, aes(x = DayOfWeek,
-                                                 y = !!sym(paste0("ET_", prefix,
-                                                                  "_Frio_daily")))) +
+  daily_plots$ET_Frio <- ggplot(daily_data, aes(x = DayOfWeek,
+                                                y = !!sym(paste0("ET_", prefix,
+                                                                 "_Frio_daily")))) +
     geom_point() +
     labs(x = "Day of the Week", y = paste("ET_", prefix, "_Frio(kwh)"), title =
            paste("Daily ET_", prefix, "_Frio")) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
-
+  
   # Plot ET_Calor_actual vs Day of the week
-  daily_plots$ET_Calor <- ggplot(hourly_data, aes(x = DayOfWeek, y = !!sym(paste0("ET_", prefix, "_Calor_daily")))) +
+  daily_plots$ET_Calor <- ggplot(daily_data, aes(x = DayOfWeek, y = !!sym(paste0("ET_", prefix, "_Calor_daily")))) +
     geom_point() +
     labs(x = "Day of the Week", y = paste("ET_", prefix, "_Calor(kwh)"), title = paste("Daily ET_", prefix, "_Calor")) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
-
+  
   # Store the side-by-side plot in a variable
   side_by_side_plot <- gridExtra::grid.arrange(daily_plots$EE, daily_plots$ET_Frio, daily_plots$ET_Calor, ncol = 3)
-
+  
   # Store the plot in the list
   all_plots[[prefix]] <- side_by_side_plot
 }
@@ -244,7 +269,6 @@ for (prefix in prefixes) {
 for (i in 1:length(prefixes)) {
   ggsave(file.path(plot_dir, paste("EE_", prefixes[i], "_and_ET_", prefixes[i], "_plots.png")), all_plots[[i]])
 }
-
 
 #COPs calculation
 #HEAT PUMP 1
@@ -290,17 +314,22 @@ for (col in cols_to_plot) {
   plot_and_save_cop(data, col, plot_dir)
 }
 
-# HOURLY COP PLOTS
-# function to plot and save COP vs hour
+# Function to plot and save COP vs hour
 plot_and_save_hourly_cop <- function(data, variable_name, plot_title, plot_dir) {
   # Extract hour from Date column
   data$Hour <- as.numeric(format(data$Date, "%H"))
-
+  
   # Aggregate data by Hour
   hourly_data <- data %>%
     group_by(Hour) %>%
     summarize_at(vars({{variable_name}}), mean, na.rm = TRUE)
-
+  
+  # Save the hourly COP values in a data frame
+  cop_values <- hourly_data[[2]]  # Extracting the COP values column
+  
+  # Create a data frame with Hour and COP values
+  hourly_cop_df <- data.frame(Hour = hourly_data$Hour, COP = cop_values)
+  
   # Plot hourly data for COP and store it in a variable
   plot <- ggplot(hourly_data, aes(x = Hour, y = {{variable_name}})) +
     geom_point() +
@@ -308,33 +337,41 @@ plot_and_save_hourly_cop <- function(data, variable_name, plot_title, plot_dir) 
     theme_minimal() +
     theme(panel.background = element_rect(fill = "white")) +
     ylim(0, 10)  # Set y-axis limits from 1 to 10
-
+  
   # Print the plot
   print(plot)
-
+  
   # Save the plot as a PNG file
   ggsave(file.path(plot_dir, paste(plot_title, "_hourly.png")), plot)
+  
+  # Return the data frame with Hour and COP values
+  return(hourly_cop_df)
 }
 
 # Call the function for COP_BC1
-plot_and_save_hourly_cop(data, COP_BC1, "COP_BC1", plot_dir)
+hourly_cop_BC1 <- plot_and_save_hourly_cop(data, COP_BC1, "COP_BC1", plot_dir)
 
-# HEAT PUMP 2
-plot_and_save_hourly_cop(data, COP_BC2, "COP_BC2", plot_dir)
+# Call the function for COP_BC2
+hourly_cop_BC2 <- plot_and_save_hourly_cop(data, COP_BC2, "COP_BC2", plot_dir)
 
-# HEAT PUMP 3
-plot_and_save_hourly_cop(data, COP_BC3, "COP_BC3", plot_dir)
+# Call the function for COP_BC3
+hourly_cop_BC3 <- plot_and_save_hourly_cop(data, COP_BC3, "COP_BC3", plot_dir)
 
-# function to plot and save COP vs day of the week
+# Function to plot and save COP vs day of the week
 plot_and_save_daily_cop <- function(data, variable_name, plot_title, plot_dir) {
   # Extract day of the week from Date column
   data$DayOfWeek <- factor(weekdays(data$Date), levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
-
+  
   # Aggregate data by day of the week
   daily_data <- data %>%
     group_by(DayOfWeek) %>%
     summarize_at(vars({{variable_name}}), mean, na.rm = TRUE)
-
+  
+  # Save the daily COP values in a data frame
+  cop_values <- daily_data[[2]]  # Extracting the COP values column
+  # Create a data frame with Day of the Week and COP values
+  daily_cop_df <- data.frame(DayOfWeek = daily_data$DayOfWeek, COP = cop_values)
+  
   # Plot daily data for COP and store it in a variable
   plot <- ggplot(daily_data, aes(x = DayOfWeek, y = {{variable_name}})) +
     geom_point() +
@@ -342,22 +379,26 @@ plot_and_save_daily_cop <- function(data, variable_name, plot_title, plot_dir) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
     ylim(0, 10)  # Set y-axis limits from 1 to 10
-
+  
   # Print the plot
   print(plot)
-
+  
   # Save the plot as a PNG file
   ggsave(file.path(plot_dir, paste(plot_title, "_daily.png")), plot)
+  
+  # Return the data frame with Day of the Week and COP values
+  return(daily_cop_df)
 }
 
 # Call the function for COP_BC1
-plot_and_save_daily_cop(data, COP_BC1, "COP_BC1", plot_dir)
+daily_cop_BC1 <- plot_and_save_daily_cop(data, COP_BC1, "COP_BC1", plot_dir)
 
 # Call the function for COP_BC2
-plot_and_save_daily_cop(data, COP_BC2, "COP_BC2", plot_dir)
+daily_cop_BC2 <- plot_and_save_daily_cop(data, COP_BC2, "COP_BC2", plot_dir)
 
 # Call the function for COP_BC3
-plot_and_save_daily_cop(data, COP_BC3, "COP_BC3", plot_dir)
+daily_cop_BC3 <- plot_and_save_daily_cop(data, COP_BC3, "COP_BC3", plot_dir)
+
 
 #comparison of heat pumps hourly energy consumption
 # Reshape data into longer format for hourly comparison
@@ -395,34 +436,6 @@ daily_plot_comparison <- ggplot(data_long, aes(x = Date, y = Energy_Consumption,
 ggsave(file.path(plot_dir, "daily_E_Consumption_comparision.png"), daily_plot_comparison)
 
 print(daily_plot_comparison)
-
-
-# function to plot COP vs ET_BC and save the plot
-plot_and_save_cop_vs_et_bc <- function(data, prefix, plot_dir) {
-  # Create the new column for ET_BC by summing Frio and Calor columns
-  et_bc_column <- paste0("ET_BC", prefix)
-  et_bc_frio_column <- paste0("ET_BC", prefix, "_Frio_actual")
-  et_bc_calor_column <- paste0("ET_BC", prefix, "_Calor_actual")
-  data[[et_bc_column]] <- data[[et_bc_frio_column]] + data[[et_bc_calor_column]]
-
-  # Plot COP vs ET_BC
-  plot_title <- paste("COP_BC", prefix, " vs ET_BC", prefix)
-  plot <- ggplot(data, aes(x = !!sym(et_bc_column), y = !!sym(paste0("COP_BC", prefix)))) +
-    geom_point() +
-    labs(x = paste(et_bc_column, "(kwh)"), y = paste("COP_BC", prefix), title = plot_title) +
-    theme_minimal()
-
-  # Print the plot
-  print(plot)
-
-  # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste("COP_BC", prefix, "_vs_ET_BC", prefix, ".png")), plot)
-}
-
-# Call the function for each heat pump
-for (i in 1:2) {
-  plot_and_save_cop_vs_et_bc(data, i, plot_dir)
-}
 
 # Energy signature analysis
 # Convert Dia column to Date format if it's not already in Date format
@@ -524,3 +537,66 @@ plot_hp2_cdd <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump2_Load))
   labs(x = "CDD", y = "Heat_Pump2_Load", title = "Heat Pump 2 Load vs CDD")
 
 create_and_save_plot(plot_hp2_cdd, "plot_hp2_cdd.png", plot_dir)
+
+# Function to plot hourly COP vs hourly thermal load for each heat pump
+plot_and_save_hourly_cop_vs_thermal_load <- function(hourly_cop_data, hourly_thermal_load_data, prefix, plot_dir) {
+  # Define column names for COP and thermal load for the specified heat pump
+  cop_column <- "COP"
+  thermal_load_column <- paste0("Heat_Pump_", prefix)
+  
+  # Merge hourly COP and thermal load data
+  merged_data <- merge(hourly_cop_data, hourly_thermal_load_data, by.x = "Hour", by.y = "Hour", all = TRUE)
+  
+  # Plot hourly COP vs hourly thermal load
+  plot_title <- paste("Hourly COP vs Hourly Thermal Load for Heat Pump", prefix)
+  plot <- ggplot(merged_data, aes(x = !!sym(thermal_load_column), y = !!sym(cop_column))) +
+    geom_point() +
+    labs(x = paste("Hourly Thermal Load for Heat Pump", prefix, "(kwh)"), y = paste("COP for Heat Pump", prefix), title = plot_title) +
+    theme_minimal()
+  
+  # Print the plot
+  print(plot)
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste("Hourly_COP_vs_Thermal_Load_Heat_Pump", prefix, ".png")), plot)
+}
+
+# Function to plot daily COP vs daily thermal load for each heat pump
+plot_and_save_daily_cop_vs_thermal_load <- function(daily_cop_data, daily_thermal_load_data, prefix, plot_dir) {
+  # Define column names for COP and thermal load for the specified heat pump
+  cop_column <- "COP"  # Updated to match the actual column name for daily COP
+  thermal_load_column <- paste0("Heat_Pump_", prefix)
+  
+  # Merge daily COP and thermal load data
+  merged_data <- merge(daily_cop_data, daily_thermal_load_data, by.x = "DayOfWeek", by.y = "DayOfWeek", all = TRUE)
+  
+  # Plot daily COP vs daily thermal load
+  plot_title <- paste("Daily COP vs Daily Thermal Load for Heat Pump", prefix)
+  plot <- ggplot(merged_data, aes(x = !!sym(thermal_load_column), y = !!sym(cop_column))) +
+    geom_point() +
+    labs(x = paste("Daily Thermal Load for Heat Pump", prefix, "(kwh)"), y = paste("COP for Heat Pump", prefix), title = plot_title) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+  
+  # Print the plot
+  print(plot)
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste("Daily_COP_vs_Thermal_Load_Heat_Pump", prefix, ".png")), plot)
+}
+
+
+# Call the functions for each heat pump
+plot_and_save_hourly_cop_vs_thermal_load(hourly_cop_data = hourly_cop_BC1,
+                                         hourly_thermal_load_data = total_hourly_thermal_load,
+                                         prefix = 1, plot_dir = plot_dir)
+plot_and_save_daily_cop_vs_thermal_load(daily_cop_data = daily_cop_BC1,
+                                        daily_thermal_load_data = total_daily_thermal_load,
+                                        prefix = 1, plot_dir = plot_dir)
+
+plot_and_save_hourly_cop_vs_thermal_load(hourly_cop_data = hourly_cop_BC2,
+                                         hourly_thermal_load_data = total_hourly_thermal_load,
+                                         prefix = 2, plot_dir = plot_dir)
+plot_and_save_daily_cop_vs_thermal_load(daily_cop_data = daily_cop_BC2,
+                                        daily_thermal_load_data = total_daily_thermal_load,
+                                        prefix = 2, plot_dir = plot_dir)
