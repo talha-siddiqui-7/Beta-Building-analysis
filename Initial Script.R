@@ -438,7 +438,7 @@ ggsave(file.path(plot_dir, "daily_E_Consumption_comparision.png"), daily_plot_co
 print(daily_plot_comparison)
 
 # Energy signature analysis
-# Convert Dia column to Date format if it's not already in Date format
+# Convert Dia column to Date format 
 weather_data$Dia <- as.Date(weather_data$Dia)
 
 # Aggregate the daily average temperature
@@ -453,10 +453,40 @@ base_temperature <- 18.3  # 65°F
 daily_avg_temp$HDD <- pmax(base_temperature - daily_avg_temp$Avg_Temperature, 0)
 daily_avg_temp$CDD <- pmax(daily_avg_temp$Avg_Temperature - base_temperature, 0)
 
+#This code is only added until updated data can be received from EUSKALMET
+################################################################################
+# Define the file name for the 'HDD_CDD Data' CSV
+file_hdd_cdd <- file.path(DIR_WEATHER, "HDD_CDD Data.csv")
+
+# Read the data from the CSV file
+hdd_cdd_data <- read.csv(file_hdd_cdd)
+
+# Convert the Date column in hdd_cdd_data to Date type
+hdd_cdd_data$Date <- as.Date(hdd_cdd_data$Date)
+
+# Ensure the Date column in daily_avg_temp is of Date type
+daily_avg_temp$Dia <- as.Date(daily_avg_temp$Dia)
+
+# Find the last date in the daily_avg_temp data
+last_date_daily_avg_temp <- max(daily_avg_temp$Dia, na.rm = TRUE)
+
+# Filter the hdd_cdd_data to include only new dates
+new_data <- subset(hdd_cdd_data, Date > last_date_daily_avg_temp)
+
+# Select only the relevant columns and rename them to match those in daily_avg_temp
+new_data <- new_data %>%
+  select(Date, HDD, CDD) %>%
+  rename(Dia = Date)
+
+# Append the new data to daily_avg_temp (ignoring Avg_Temperature column)
+daily_avg_temp <- daily_avg_temp %>%
+  select(Dia, HDD, CDD) %>%
+  bind_rows(new_data)
+#################################################################################
+
 #calculating average thermal loads
 # Extract date from the datetime format
 data$Date <- as.Date(data$Date, format = "%d-%m-%Y-%H-%M-%S")
-
 # Calculate the individual loads for Heat Pump 1 and Heat Pump 2
 data <- data %>%
   mutate(Heat_Pump1_Load = ET_BC1_Frio_actual + ET_BC1_Calor_actual,
