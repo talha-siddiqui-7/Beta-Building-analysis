@@ -624,65 +624,61 @@ plot_hp2_cooling_cdd <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump
 
 create_and_save_plot(plot_hp2_cooling_cdd, "plot_hp2_cooling_cdd.png", plot_dir, y_limits_cooling)
 
-# Function to plot hourly COP vs hourly thermal load for each heat pump
-plot_and_save_hourly_cop_vs_thermal_load <- function(hourly_cop_data, hourly_thermal_load_data, prefix, plot_dir) {
-  # Define column names for COP and thermal load for the specified heat pump
-  cop_column <- "COP"
-  thermal_load_column <- paste0("Heat_Pump_", prefix)
-  
-  # Merge hourly COP and thermal load data
-  merged_data <- merge(hourly_cop_data, hourly_thermal_load_data, by.x = "Hour", by.y = "Hour", all = TRUE)
-  
-  # Plot hourly COP vs hourly thermal load
-  plot_title <- paste("Hourly COP vs Hourly Thermal Load for Heat Pump", prefix)
-  plot <- ggplot(merged_data, aes(x = !!sym(thermal_load_column), y = !!sym(cop_column))) +
-    geom_point() +
-    labs(x = paste("Hourly Thermal Load for Heat Pump", prefix, "(kwh)"), y = paste("COP for Heat Pump", prefix), title = plot_title) +
-    theme_minimal()
-  
-  # Print the plot
-  print(plot)
-  
-  # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste("Hourly_COP_vs_Thermal_Load_Heat_Pump", prefix, ".png")), plot)
-}
+# Add Month variable to energy_signature_data
+energy_signature_data$Month <- format(energy_signature_data$Date, "%Y-%m")
 
-# Function to plot daily COP vs daily thermal load for each heat pump
-plot_and_save_daily_cop_vs_thermal_load <- function(daily_cop_data, daily_thermal_load_data, prefix, plot_dir) {
-  # Define column names for COP and thermal load for the specified heat pump
-  cop_column <- "COP"  # Updated to match the actual column name for daily COP
-  thermal_load_column <- paste0("Heat_Pump_", prefix)
-  
-  # Merge daily COP and thermal load data
-  merged_data <- merge(daily_cop_data, daily_thermal_load_data, by.x = "DayOfWeek", by.y = "DayOfWeek", all = TRUE)
-  
-  # Plot daily COP vs daily thermal load
-  plot_title <- paste("Daily COP vs Daily Thermal Load for Heat Pump", prefix)
-  plot <- ggplot(merged_data, aes(x = !!sym(thermal_load_column), y = !!sym(cop_column))) +
-    geom_point() +
-    labs(x = paste("Daily Thermal Load for Heat Pump", prefix, "(kwh)"), y = paste("COP for Heat Pump", prefix), title = plot_title) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
-  
-  # Print the plot
-  print(plot)
-  
-  # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste("Daily_COP_vs_Thermal_Load_Heat_Pump", prefix, ".png")), plot)
-}
+# Monthly versions of existing plots
+# Plot Heating Load vs HDD (Monthly)
+plot_heating_hdd_monthly_existing <- ggplot(energy_signature_data, aes(x = HDD, y = Total_Heating_Load, color = Month)) +
+  geom_point() +
+  labs(x = "HDD", y = "Total Heating Load", title = "Total Heating Load vs HDD (Monthly)") +
+  scale_color_discrete(name = "Month")
 
+# Display and save the plot
+create_and_save_plot(plot_heating_hdd_monthly_existing, "plot_heating_hdd_monthly_existing.png", plot_dir, y_limits_heating)
 
-# Call the functions for each heat pump
-plot_and_save_hourly_cop_vs_thermal_load(hourly_cop_data = hourly_cop_BC1,
-                                         hourly_thermal_load_data = total_hourly_thermal_load,
-                                         prefix = 1, plot_dir = plot_dir)
-plot_and_save_daily_cop_vs_thermal_load(daily_cop_data = daily_cop_BC1,
-                                        daily_thermal_load_data = total_daily_thermal_load,
-                                        prefix = 1, plot_dir = plot_dir)
+# Plot Cooling Load vs CDD (Monthly)
+plot_cooling_cdd_monthly_existing <- ggplot(energy_signature_data, aes(x = CDD, y = Total_Cooling_Load, color = Month)) +
+  geom_point() +
+  labs(x = "CDD", y = "Total Cooling Load", title = "Total Cooling Load vs CDD (Monthly)") +
+  scale_color_discrete(name = "Month")
 
-plot_and_save_hourly_cop_vs_thermal_load(hourly_cop_data = hourly_cop_BC2,
-                                         hourly_thermal_load_data = total_hourly_thermal_load,
-                                         prefix = 2, plot_dir = plot_dir)
-plot_and_save_daily_cop_vs_thermal_load(daily_cop_data = daily_cop_BC2,
-                                        daily_thermal_load_data = total_daily_thermal_load,
-                                        prefix = 2, plot_dir = plot_dir)
+# Display and save the plot
+create_and_save_plot(plot_cooling_cdd_monthly_existing, "plot_cooling_cdd_monthly_existing.png", plot_dir, y_limits_cooling)
+
+# Monthly versions of existing plots for each heat pump
+# Plot Heating Load vs HDD (Heat Pump 1) (Monthly)
+plot_hp1_heating_hdd_monthly_existing <- ggplot(energy_signature_data, aes(x = HDD, y = Heat_Pump1_Heating_Load, color = Month)) +
+  geom_point() +
+  labs(x = "HDD", y = "Heat Pump 1 Heating Load", title = "Heat Pump 1 Heating Load vs HDD (Monthly)") +
+  scale_color_discrete(name = "Month")
+
+# Display and save the plot
+create_and_save_plot(plot_hp1_heating_hdd_monthly_existing, "plot_hp1_heating_hdd_monthly_existing.png", plot_dir, y_limits_heating)
+
+# Plot Cooling Load vs CDD (Heat Pump 1) (Monthly)
+plot_hp1_cooling_cdd_monthly_existing <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump1_Cooling_Load, color = Month)) +
+  geom_point() +
+  labs(x = "CDD", y = "Heat Pump 1 Cooling Load", title = "Heat Pump 1 Cooling Load vs CDD (Monthly)") +
+  scale_color_discrete(name = "Month")
+
+# Display and save the plot
+create_and_save_plot(plot_hp1_cooling_cdd_monthly_existing, "plot_hp1_cooling_cdd_monthly_existing.png", plot_dir, y_limits_cooling)
+
+# Plot Heating Load vs HDD (Heat Pump 2) (Monthly)
+plot_hp2_heating_hdd_monthly_existing <- ggplot(energy_signature_data, aes(x = HDD, y = Heat_Pump2_Heating_Load, color = Month)) +
+  geom_point() +
+  labs(x = "HDD", y = "Heat Pump 2 Heating Load", title = "Heat Pump 2 Heating Load vs HDD (Monthly)") +
+  scale_color_discrete(name = "Month")
+
+# Display and save the plot
+create_and_save_plot(plot_hp2_heating_hdd_monthly_existing, "plot_hp2_heating_hdd_monthly_existing.png", plot_dir, y_limits_heating)
+
+# Plot Cooling Load vs CDD (Heat Pump 2) (Monthly)
+plot_hp2_cooling_cdd_monthly_existing <- ggplot(energy_signature_data, aes(x = CDD, y = Heat_Pump2_Cooling_Load, color = Month)) +
+  geom_point() +
+  labs(x = "CDD", y = "Heat Pump 2 Cooling Load", title = "Heat Pump 2 Cooling Load vs CDD (Monthly)") +
+  scale_color_discrete(name = "Month")
+
+# Display and save the plot
+create_and_save_plot(plot_hp2_cooling_cdd_monthly_existing, "plot_hp2_cooling_cdd_monthly_existing.png", plot_dir, y_limits_cooling)
