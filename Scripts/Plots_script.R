@@ -682,3 +682,28 @@ plot_hp2_cooling_cdd_monthly_existing <- ggplot(energy_signature_data, aes(x = C
 
 # Display and save the plot
 create_and_save_plot(plot_hp2_cooling_cdd_monthly_existing, "plot_hp2_cooling_cdd_monthly_existing.png", plot_dir, y_limits_cooling)
+
+# Linear regression for Heating Load vs HDD
+heating_lm <- lm(Total_Heating_Load ~ HDD, data = energy_signature_data)
+
+# Extract coefficients for HDD
+heating_A_hdd <- coef(heating_lm)[1]
+heating_B_hdd <- coef(heating_lm)[2]
+
+# Linear regression for Cooling Load vs CDD
+cooling_lm <- lm(Total_Cooling_Load ~ CDD, data = energy_signature_data)
+
+# Extract coefficients for CDD
+cooling_A_cdd <- coef(cooling_lm)[1]
+cooling_B_cdd <- coef(cooling_lm)[2]
+
+# Display the coefficients
+heating_A_hdd
+heating_B_hdd
+cooling_A_cdd
+cooling_B_cdd
+
+# Print out the equations
+cat("Heating Load vs HDD equation: ET = ", heating_A_hdd, " + ", heating_B_hdd, " * HDD\n")
+cat("Cooling Load vs CDD equation: ET = ", cooling_A_cdd, " + ", cooling_B_cdd, " * CDD\n")
+
