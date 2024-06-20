@@ -99,17 +99,26 @@ for (i in 1:3) {
 }
 
 # Making hourly plots of all heat pumps against EE, ET_Frio, ET_Calor
+# Filter out rows with NA in Date column
+data <- data[!is.na(data$Date), ]
+
 # Define a vector of prefixes
 prefixes <- c("BC1", "BC2", "BC3")
+
+# Extract hour from Date column
+data$Hour <- as.numeric(format(data$Date, "%H"))
+
+# Determine weekday or weekend
+data$DayType <- ifelse(weekdays(data$Date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
 
 # Create an empty data frame to store hourly data for all heat pumps
 hourly_data_combined <- data.frame()
 
 # Iterate over each prefix to calculate hourly values
 for (prefix in prefixes) {
-  # Aggregate data by Hour
+  # Aggregate data by Hour, DayType, and Heat_Pump
   hourly_data <- data %>%
-    group_by(Hour) %>%
+    group_by(Hour, DayType) %>%
     summarize(
       EE_hourly = mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
       ET_Frio_hourly = mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
@@ -137,76 +146,61 @@ y_limits <- list(
   ET_Calor = c(0, max_ET_Calor)
 )
 
-# Create and save plots separately for each prefix and metric
-for (prefix in prefixes) {
-  hourly_data <- hourly_data_combined %>% filter(Heat_Pump == prefix)
-  
-  # Plot EE_actual vs Hour
-  EE_plot <- ggplot(hourly_data, aes(x = Hour, y = EE_hourly)) +
-    geom_point() +
-    ylim(y_limits$EE) +
-    labs(x = "Hour", y = paste("EE_", prefix, "(kwh)"), title = paste("Hourly EE_", prefix)) +
-    theme_minimal() +
-    theme(plot.title = element_text(size = 10))  # Set the font size of the plot title
-  
-  # Display EE plot
-  print(EE_plot)
-  
-  # Save EE plot
-  ggsave(file.path(plot_dir, paste0("EE_", prefix, "_plot.png")), EE_plot)
-  
-  # Plot ET_Frio_actual vs Hour
-  ET_Frio_plot <- ggplot(hourly_data, aes(x = Hour, y = ET_Frio_hourly)) +
-    geom_point() +
-    ylim(y_limits$ET_Frio) +
-    labs(x = "Hour", y = paste("ET_", prefix, "_Frio(kwh)"), title = paste("Hourly ET_", prefix, "_Frio")) +
-    theme_minimal() +
-    theme(plot.title = element_text(size = 10))  # Set the font size of the plot title
-  
-  # Display ET_Frio plot
-  print(ET_Frio_plot)
-  
-  # Save ET_Frio plot
-  ggsave(file.path(plot_dir, paste0("ET_Frio_", prefix, "_plot.png")), ET_Frio_plot)
-  
-  # Plot ET_Calor_actual vs Hour
-  ET_Calor_plot <- ggplot(hourly_data, aes(x = Hour, y = ET_Calor_hourly)) +
-    geom_point() +
-    ylim(y_limits$ET_Calor) +
-    labs(x = "Hour", y = paste("ET_", prefix, "_Calor(kwh)"), title = paste("Hourly ET_", prefix, "_Calor")) +
-    theme_minimal() +
-    theme(plot.title = element_text(size = 10))  # Set the font size of the plot title
-  
-  # Display ET_Calor plot
-  print(ET_Calor_plot)
-  
-  # Save ET_Calor plot
-  ggsave(file.path(plot_dir, paste0("ET_Calor_", prefix, "_plot.png")), ET_Calor_plot)
-}
+# Plot EE_actual vs Hour with line plot for all prefixes, distinguishing by DayType
+plot_EE <- ggplot(hourly_data_combined, aes(x = Hour, y = EE_hourly, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
+  ylim(y_limits$EE) +
+  labs(x = "Hour", y = "EE (kwh)", title = "Hourly EE by Weekday/Weekend for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
 
+# Plot ET_Frio_actual vs Hour with line plot for all prefixes, distinguishing by DayType
+plot_ET_Frio <- ggplot(hourly_data_combined, aes(x = Hour, y = ET_Frio_hourly, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
+  ylim(y_limits$ET_Frio) +
+  labs(x = "Hour", y = "ET_Frio (kwh)", title = "Hourly ET_Frio by Weekday/Weekend for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Plot ET_Calor_actual vs Hour with line plot for all prefixes, distinguishing by DayType
+plot_ET_Calor <- ggplot(hourly_data_combined, aes(x = Hour, y = ET_Calor_hourly, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
+  ylim(y_limits$ET_Calor) +
+  labs(x = "Hour", y = "ET_Calor (kwh)", title = "Hourly ET_Calor by Weekday/Weekend for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Save and display the combined plots
+ggsave(file.path(plot_dir, "EE_hourly_combined_plot.png"), plot = plot_EE)
+print(plot_EE)  # Display the EE plot
+
+ggsave(file.path(plot_dir, "ET_Frio_hourly_combined_plot.png"), plot = plot_ET_Frio)
+print(plot_ET_Frio)  # Display the ET_Frio plot
+
+ggsave(file.path(plot_dir, "ET_Calor_hourly_combined_plot.png"), plot = plot_ET_Calor)
+print(plot_ET_Calor)  # Display the ET_Calor plot
 
 # Plots for day of the week
+# Filter out rows with NA in Date column
+data <- data[!is.na(data$Date), ]
+
 # Define a vector of prefixes
 prefixes <- c("BC1", "BC2", "BC3")
-
-# Create an empty list to store the plots
-all_plots <- list()
-
-# Create an empty data frame to store the total_daily_thermal_load
-total_daily_thermal_load <- data.frame(
-  DayOfWeek = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"),
-  Heat_Pump_1 = numeric(7),
-  Heat_Pump_2 = numeric(7)
-)
 
 # Create a data frame to store daily data for all heat pumps
 daily_data_combined <- data.frame()
 
+# Extract day of the week from Date column
+data$DayOfWeek <- wday(data$Date, label = TRUE)
+
 # Iterate over each prefix to calculate daily values
 for (prefix in prefixes) {
-  # Extract day of the week from Date column
-  data$DayOfWeek <- wday(data$Date, label = TRUE)
-  
   # Aggregate data by day of the week
   daily_data <- data %>%
     group_by(DayOfWeek) %>%
@@ -221,6 +215,9 @@ for (prefix in prefixes) {
   daily_data_combined <- bind_rows(daily_data_combined, daily_data)
 }
 
+# Sort by DayOfWeek to ensure correct line connections
+daily_data_combined <- daily_data_combined[order(match(daily_data_combined$DayOfWeek, c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))), ]
+
 # Find maximum y-axis values for each category
 max_EE <- max(daily_data_combined$EE_daily, na.rm = TRUE)
 max_ET_Frio <- max(daily_data_combined$ET_Frio_daily, na.rm = TRUE)
@@ -233,53 +230,42 @@ y_limits <- list(
   ET_Calor = c(0, max_ET_Calor)
 )
 
-# Iterate over each prefix again to plot daily data with uniform y-axis limits
-for (prefix in prefixes) {
-  daily_data <- daily_data_combined %>% filter(Heat_Pump == prefix)
-  
-  # Plot daily data
-  daily_plots <- list()
-  
-  # Plot EE_actual vs Day of the week
-  daily_plots$EE <- ggplot(daily_data, aes(x = DayOfWeek, y = EE_daily)) +
-    geom_point() +
-    ylim(y_limits$EE) +
-    labs(x = "Day of the Week", y = paste("EE_", prefix, "(kwh)"), title = paste("Daily EE_", prefix)) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.title = element_text(size = 10)  # Set the font size of the plot title
-    )
-  
-  # Plot ET_Frio_actual vs Day of the week
-  daily_plots$ET_Frio <- ggplot(daily_data, aes(x = DayOfWeek, y = ET_Frio_daily)) +
-    geom_point() +
-    ylim(y_limits$ET_Frio) +
-    labs(x = "Day of the Week", y = paste("ET_", prefix, "_Frio(kwh)"), title = paste("Daily ET_", prefix, "_Frio")) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.title = element_text(size = 10)  # Set the font size of the plot title
-    )
-  
-  # Plot ET_Calor_actual vs Day of the week
-  daily_plots$ET_Calor <- ggplot(daily_data, aes(x = DayOfWeek, y = ET_Calor_daily)) +
-    geom_point() +
-    ylim(y_limits$ET_Calor) +
-    labs(x = "Day of the Week", y = paste("ET_", prefix, "_Calor(kwh)"), title = paste("Daily ET_", prefix, "_Calor")) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.title = element_text(size = 10)  # Set the font size of the plot title
-    )
-  
-  # Save each plot separately and display them
-  ggsave(file.path(plot_dir, paste("EE_", prefix, "_plot.png")), plot = daily_plots$EE)
-  print(daily_plots$EE)  # Display the EE plot
-  
-  ggsave(file.path(plot_dir, paste("ET_Frio_", prefix, "_plot.png")), plot = daily_plots$ET_Frio)
-  print(daily_plots$ET_Frio)  # Display the ET_Frio plot
-  
-  ggsave(file.path(plot_dir, paste("ET_Calor_", prefix, "_plot.png")), plot = daily_plots$ET_Calor)
-  print(daily_plots$ET_Calor)  # Display the ET_Calor plot
-}
+# Plot EE_actual vs Day of the week with line plot for all prefixes
+plot_EE <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = EE_daily, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  ylim(y_limits$EE) +
+  labs(x = "Day of the Week", y = "EE (kwh)", title = "Daily EE for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Plot ET_Frio_actual vs Day of the week with line plot for all prefixes
+plot_ET_Frio <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = ET_Frio_daily, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  ylim(y_limits$ET_Frio) +
+  labs(x = "Day of the Week", y = "ET_Frio (kwh)", title = "Daily ET_Frio for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Plot ET_Calor_actual vs Day of the week with line plot for all prefixes
+plot_ET_Calor <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = ET_Calor_daily, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  ylim(y_limits$ET_Calor) +
+  labs(x = "Day of the Week", y = "ET_Calor (kwh)", title = "Daily ET_Calor for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Save and display the combined plots
+ggsave(file.path(plot_dir, "EE_combined_plot.png"), plot = plot_EE)
+print(plot_EE)  # Display the EE plot
+
+ggsave(file.path(plot_dir, "ET_Frio_combined_plot.png"), plot = plot_ET_Frio)
+print(plot_ET_Frio)  # Display the ET_Frio plot
+
+ggsave(file.path(plot_dir, "ET_Calor_combined_plot.png"), plot = plot_ET_Calor)
+print(plot_ET_Calor)  # Display the ET_Calor plot
 
 #COPs calculation
 #HEAT PUMP 1
@@ -322,7 +308,6 @@ for (col in cols_to_check) {
 }
 
 # PLOTS COP vs Date
-
 # Function to plot and save COP vs Date with uniform y-axis scale
 plot_and_save_cop <- function(data, col_name, plot_dir, y_limits) {
   plot <- ggplot(data, aes(x = Date, y = !!sym(col_name))) +
@@ -348,91 +333,99 @@ for (col in cols_to_plot) {
   plot_and_save_cop(data, col, plot_dir, y_limits)
 }
 
-# Function to plot and save COP vs hour
-plot_and_save_hourly_cop <- function(data, variable_name, plot_title, plot_dir) {
+# Function to plot and save COP vs hour with different prefixes
+plot_and_save_hourly_cop_combined <- function(data, prefixes, variable_name, plot_title, plot_dir) {
   # Extract hour from Date column
   data$Hour <- as.numeric(format(data$Date, "%H"))
   
-  # Aggregate data by Hour
-  hourly_data <- data %>%
-    group_by(Hour) %>%
-    summarize_at(vars({{variable_name}}), mean, na.rm = TRUE)
+  # Create an empty data frame to store combined hourly COP data
+  hourly_cop_combined <- data.frame()
   
-  # Save the hourly COP values in a data frame
-  cop_values <- hourly_data[[2]]  # Extracting the COP values column
-  
-  # Create a data frame with Hour and COP values
-  hourly_cop_df <- data.frame(Hour = hourly_data$Hour, COP = cop_values)
+  # Iterate over each prefix
+  for (prefix in prefixes) {
+    # Aggregate data by hour and prefix
+    hourly_data <- data %>%
+      group_by(Hour) %>%
+      summarize(COP_hourly = mean(!!sym(paste0(variable_name, "_", prefix)), na.rm = TRUE)) %>%
+      mutate(Heat_Pump = prefix)
+    
+    # Combine hourly data
+    hourly_cop_combined <- bind_rows(hourly_cop_combined, hourly_data)
+  }
   
   # Plot hourly data for COP and store it in a variable
-  plot <- ggplot(hourly_data, aes(x = Hour, y = {{variable_name}})) +
-    geom_point() +
+  plot <- ggplot(hourly_cop_combined, aes(x = Hour, y = COP_hourly, color = Heat_Pump, group = Heat_Pump)) +
+    geom_line(size = 1.5) +  # Adjust line thickness
     labs(x = "Hour", y = plot_title, title = paste("Hourly", plot_title)) +
     theme_minimal() +
     theme(panel.background = element_rect(fill = "white")) +
-    ylim(0, 10)  # Set y-axis limits from 1 to 10
+    ylim(0, NA) +  # Adjust y-axis limits based on data
+    scale_color_manual(values = c("BC1" = "blue", "BC2" = "red", "BC3" = "green"))  # Define colors for each prefix
   
   # Print the plot
   print(plot)
   
   # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste(plot_title, "_hourly.png")), plot)
+  ggsave(file.path(plot_dir, paste(plot_title, "_hourly_combined.png")), plot)
   
-  # Return the data frame with Hour and COP values
-  return(hourly_cop_df)
+  # Return the combined hourly COP data frame
+  return(hourly_cop_combined)
 }
 
-# Call the function for COP_BC1
-hourly_cop_BC1 <- plot_and_save_hourly_cop(data, COP_BC1, "COP_BC1", plot_dir)
+# Define prefixes
+prefixes <- c("BC1", "BC2", "BC3")
 
-# Call the function for COP_BC2
-hourly_cop_BC2 <- plot_and_save_hourly_cop(data, COP_BC2, "COP_BC2", plot_dir)
+# Call the function to plot and save combined hourly COP data
+hourly_cop_combined <- plot_and_save_hourly_cop_combined(data, prefixes, "COP", "Combined COP", plot_dir)
 
-# Call the function for COP_BC3
-hourly_cop_BC3 <- plot_and_save_hourly_cop(data, COP_BC3, "COP_BC3", plot_dir)
-
-# Function to plot and save COP vs day of the week
-plot_and_save_daily_cop <- function(data, variable_name, plot_title, plot_dir) {
+# Function to plot and save COP vs day of the week with different prefixes
+plot_and_save_daily_cop_combined <- function(data, prefixes, variable_name, plot_title, plot_dir) {
   # Extract day of the week from Date column
   data$DayOfWeek <- factor(weekdays(data$Date), levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
   
-  # Aggregate data by day of the week
-  daily_data <- data %>%
-    group_by(DayOfWeek) %>%
-    summarize_at(vars({{variable_name}}), mean, na.rm = TRUE)
+  # Create an empty data frame to store combined daily COP data
+  daily_cop_combined <- data.frame()
   
-  # Save the daily COP values in a data frame
-  cop_values <- daily_data[[2]]  # Extracting the COP values column
-  # Create a data frame with Day of the Week and COP values
-  daily_cop_df <- data.frame(DayOfWeek = daily_data$DayOfWeek, COP = cop_values)
+  # Iterate over each prefix
+  for (prefix in prefixes) {
+    # Aggregate data by day of the week and prefix
+    daily_data <- data %>%
+      group_by(DayOfWeek) %>%
+      summarize(COP_daily = mean(!!sym(paste0(variable_name, "_", prefix)), na.rm = TRUE)) %>%
+      mutate(Heat_Pump = prefix)
+    
+    # Combine daily data
+    daily_cop_combined <- bind_rows(daily_cop_combined, daily_data)
+  }
+  
+  # Sort by DayOfWeek to ensure correct line connections
+  daily_cop_combined <- daily_cop_combined %>%
+    arrange(DayOfWeek)
   
   # Plot daily data for COP and store it in a variable
-  plot <- ggplot(daily_data, aes(x = DayOfWeek, y = {{variable_name}})) +
-    geom_point() +
+  plot <- ggplot(daily_cop_combined, aes(x = DayOfWeek, y = COP_daily, color = Heat_Pump, group = Heat_Pump)) +
+    geom_line(size = 1.5) +  # Increase line thickness
     labs(x = "Day of the Week", y = plot_title, title = paste("Daily", plot_title)) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
-    ylim(0, 10)  # Set y-axis limits from 1 to 10
+    ylim(0, NA) +  # Adjust y-axis limits based on data
+    scale_color_manual(values = c("BC1" = "blue", "BC2" = "red", "BC3" = "green"))  # Define colors for each prefix
   
   # Print the plot
   print(plot)
   
   # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste(plot_title, "_daily.png")), plot)
+  ggsave(file.path(plot_dir, paste(plot_title, "_daily_combined.png")), plot)
   
-  # Return the data frame with Day of the Week and COP values
-  return(daily_cop_df)
+  # Return the combined daily COP data frame
+  return(daily_cop_combined)
 }
 
-# Call the function for COP_BC1
-daily_cop_BC1 <- plot_and_save_daily_cop(data, COP_BC1, "COP_BC1", plot_dir)
+# Define prefixes
+prefixes <- c("BC1", "BC2", "BC3")
 
-# Call the function for COP_BC2
-daily_cop_BC2 <- plot_and_save_daily_cop(data, COP_BC2, "COP_BC2", plot_dir)
-
-# Call the function for COP_BC3
-daily_cop_BC3 <- plot_and_save_daily_cop(data, COP_BC3, "COP_BC3", plot_dir)
-
+# Call the function to plot and save combined daily COP data
+daily_cop_combined <- plot_and_save_daily_cop_combined(data, prefixes, "COP", "Combined COP", plot_dir)
 
 #comparison of heat pumps hourly energy consumption
 # Reshape data into longer format for hourly comparison
