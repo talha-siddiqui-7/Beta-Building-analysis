@@ -20,11 +20,12 @@ if (length(file_list) == 0) {
 }
 
 # Read the specified CSV file
-data_file <- file.path(DIR_DATA, "pre_processed_data_iqr.csv")
+data_file <- file.path(DIR_DATA, "pre_processed.csv")
 if (!file.exists(data_file)) {
   stop("csv file not found in the data directory.")
 }
 data <- read.csv(data_file)
+
 # Read weather data file
 weather_file_list <- list.files(DIR_WEATHER, full.names = TRUE)
 if (length(weather_file_list) == 0) {
@@ -33,43 +34,17 @@ if (length(weather_file_list) == 0) {
   weather_file_path <- weather_file_list[1]
   weather_data <- read.csv(weather_file_path)
 }
-#Making date wise plots of EE_BC,ET_BC_Frio, ET_BC_Calor (all heat pumps) 
-# Convert non-numeric values in the variables to numeric
-columns_to_convert <- c("EE_BC1", "ET_BC1_Frio", "ET_BC1_Calor",
-                        "EE_BC2", "ET_BC2_Frio", "ET_BC2_Calor",
-                        "EE_BC3", "ET_BC3_Frio", "ET_BC3_Calor")
 
-for (col in columns_to_convert) {
-  data[[col]] <- as.numeric(data[[col]])
-}
+# Convert 'Date' column to POSIXct object to include both date and time
+data$Date <- as.POSIXct(data$Date, format = "%Y-%m-%d %H:%M", tz = "UTC")
 
-# Function to process each heat pump
-process_heat_pump <- function(data, prefix) {
-  # Convert 'Date' column to POSIXct object
-  data$Date <- as.POSIXct(data$Date, format = "%d-%m-%Y;%H:%M:%S", tz = "UTC")
-  data <- data[complete.cases(data$Date), ]
-  
-  # Select columns for the current heat pump
-  pump_cols <- grep(paste0("^EE_BC", prefix, "$|^ET_BC", prefix, "_Frio$|^ET_BC", prefix, "_Calor$"), 
-                    names(data), value = TRUE)
-  
-  # Convert cumulative values to actual values for the current heat pump
-  for (col in pump_cols) {
-    data[[paste0(col, "_actual")]] <- c(0, diff(data[[col]]))
-  }
-  
-  return(data)
-}
-
-# Process each heat pump to create actual values
-for (i in 1:3) {
-  data <- process_heat_pump(data, i)
-}
+# Extract hour from Date column
+data$Hour <- hour(data$Date)
 
 # Find maximum y-axis values for each category
-max_EE <- max(data$EE_BC1_actual, data$EE_BC2_actual, data$EE_BC3_actual, na.rm = TRUE)
-max_ET_Frio <- max(data$ET_BC1_Frio_actual, data$ET_BC2_Frio_actual, data$ET_BC3_Frio_actual, na.rm = TRUE)
-max_ET_Calor <- max(data$ET_BC1_Calor_actual, data$ET_BC2_Calor_actual, data$ET_BC3_Calor_actual, na.rm = TRUE)
+max_EE <- max(data$EE_BC1_actual, data$EE_BC2_actual, na.rm = TRUE)
+max_ET_Frio <- max(data$ET_BC1_Frio_actual, data$ET_BC2_Frio_actual, na.rm = TRUE)
+max_ET_Calor <- max(data$ET_BC1_Calor_actual, data$ET_BC2_Calor_actual, na.rm = TRUE)
 
 # Set the y-axis limits for each category
 y_limits <- list(
@@ -85,7 +60,9 @@ plot_and_save_image <- function(data, prefix, plot_dir, y_limits) {
   ee_plot <- ggplot(data, aes(x = Date, y = !!sym(paste0("EE_BC", prefix, "_actual")))) +
     geom_point() +
     ylim(y_limits$EE) +
-    labs(x = "Date", y = paste("EE_BC", prefix, "(kwh)"), title = paste("EE_BC", prefix, "vs Date"))
+    scale_x_datetime(date_labels = "%b %Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Date", y = paste("EE_BC", prefix, "(kWh)"), title = paste("EE_BC", prefix, "vs Date"))
   
   # Save the plot as a PNG file
   ggsave(file.path(plot_dir, paste("EE_BC", prefix, "_vs_Date.png")), ee_plot)
@@ -95,7 +72,9 @@ plot_and_save_image <- function(data, prefix, plot_dir, y_limits) {
   et_frio_plot <- ggplot(data, aes(x = Date, y = !!sym(paste0("ET_BC", prefix, "_Frio_actual")))) +
     geom_point() +
     ylim(y_limits$ET_Frio) +
-    labs(x = "Date", y = paste("ET_BC", prefix, "_Frio(kwh)"), title = paste("ET_BC", prefix, "_Frio vs Date"))
+    scale_x_datetime(date_labels = "%b %Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Date", y = paste("ET_BC", prefix, "_Frio (kWh)"), title = paste("ET_BC", prefix, "_Frio vs Date"))
   
   # Save the plot as a PNG file
   ggsave(file.path(plot_dir, paste("ET_BC", prefix, "_Frio_vs_Date.png")), et_frio_plot)
@@ -105,7 +84,9 @@ plot_and_save_image <- function(data, prefix, plot_dir, y_limits) {
   et_calor_plot <- ggplot(data, aes(x = Date, y = !!sym(paste0("ET_BC", prefix, "_Calor_actual")))) +
     geom_point() +
     ylim(y_limits$ET_Calor) +
-    labs(x = "Date", y = paste("ET_BC", prefix, "_Calor(kwh)"), title = paste("ET_BC", prefix, "_Calor vs Date"))
+    scale_x_datetime(date_labels = "%b %Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Date", y = paste("ET_BC", prefix, "_Calor (kWh)"), title = paste("ET_BC", prefix, "_Calor vs Date"))
   
   # Save the plot as a PNG file
   ggsave(file.path(plot_dir, paste("ET_BC", prefix, "_Calor_vs_Date.png")), et_calor_plot)
@@ -117,24 +98,15 @@ for (i in 1:3) {
   plot_and_save_image(data, i, plot_dir, y_limits)
 }
 
-#Making hourly plots of all heat pumps against EE,ET_Frio,ET_Calor
+# Making hourly plots of all heat pumps against EE, ET_Frio, ET_Calor
 # Define a vector of prefixes
 prefixes <- c("BC1", "BC2", "BC3")
 
-# Create an empty list to store the plots
-all_plots <- list()
-
-# Create an empty data frame to store the total_hourly_thermal_load
-total_hourly_thermal_load <- data.frame(Hour = 0:23, Heat_Pump_1 = numeric(24), Heat_Pump_2 = numeric(24))
-
-# Create a data frame to store hourly data for all heat pumps
+# Create an empty data frame to store hourly data for all heat pumps
 hourly_data_combined <- data.frame()
 
 # Iterate over each prefix to calculate hourly values
 for (prefix in prefixes) {
-  # Extract hour from Date column
-  data$Hour <- as.numeric(format(data$Date, "%H"))
-  
   # Aggregate data by Hour
   hourly_data <- data %>%
     group_by(Hour) %>%
@@ -148,6 +120,10 @@ for (prefix in prefixes) {
   # Combine hourly data
   hourly_data_combined <- bind_rows(hourly_data_combined, hourly_data)
 }
+
+# Filter out extreme values (outliers) for better visualization
+hourly_data_combined <- hourly_data_combined %>%
+  filter(ET_Calor_hourly < 30 & ET_Calor_hourly > -10)  # Adjust the threshold as needed
 
 # Find maximum y-axis values for each category
 max_EE <- max(hourly_data_combined$EE_hourly, na.rm = TRUE)
@@ -207,6 +183,7 @@ for (prefix in prefixes) {
   # Save ET_Calor plot
   ggsave(file.path(plot_dir, paste0("ET_Calor_", prefix, "_plot.png")), ET_Calor_plot)
 }
+
 
 # Plots for day of the week
 # Define a vector of prefixes
@@ -327,7 +304,24 @@ data$COP_BC2[is.infinite(data$COP_BC2)] <- median_cop_bc2
 
 data$COP_BC3 <- (data$ET_BC3_Frio_actual + data$ET_BC3_Calor_actual) / data$EE_BC3_actual
 
-#PLOTS COP vs DAY/WEEK
+# Calculate IQR and identify outliers for each COP column
+cols_to_check <- c("COP_BC1", "COP_BC2", "COP_BC3")
+for (col in cols_to_check) {
+  q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
+  q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  lower_limit <- q1 - 1.5 * iqr
+  upper_limit <- q3 + 1.5 * iqr
+  
+  # Identify and replace outliers with median
+  outliers <- which(data[[col]] < lower_limit | data[[col]] > upper_limit)
+  if (length(outliers) > 0) {
+    median_cop <- median(data[[col]], na.rm = TRUE)
+    data[[col]][outliers] <- median_cop  # Replace outliers with median
+  }
+}
+
+# PLOTS COP vs Date
 
 # Function to plot and save COP vs Date with uniform y-axis scale
 plot_and_save_cop <- function(data, col_name, plot_dir, y_limits) {
@@ -341,8 +335,8 @@ plot_and_save_cop <- function(data, col_name, plot_dir, y_limits) {
 }
 
 # Determine the minimum and maximum values for the y-axis
-y_min <- min(c(min(data$COP_BC1, na.rm = TRUE), min(data$COP_BC2, na.rm = TRUE), min(data$COP_BC3, na.rm = TRUE)))
-y_max <- max(c(max(data$COP_BC1, na.rm = TRUE), max(data$COP_BC2, na.rm = TRUE), max(data$COP_BC3, na.rm = TRUE)))
+y_min <- min(c(min(data$COP_BC1, na.rm = TRUE), min(data$COP_BC2, na.rm = TRUE)))
+y_max <- max(c(max(data$COP_BC1, na.rm = TRUE), max(data$COP_BC2, na.rm = TRUE)))
 y_limits <- c(y_min, y_max)
 
 # Convert Date to the desired format
