@@ -5,7 +5,7 @@ library(ggplot2)
 
 # Set working directory and data directory
 WD <- getwd()
-DIR_DATA <- file.path(WD, "data")
+DIR_DATA <- file.path(WD, "Data")
 
 # Read energy data file
 file_path <- file.path(DIR_DATA, "historical_DIGIPEN_from_20240101_updated.csv")
@@ -24,7 +24,8 @@ data <- data %>%
 # Variables of interest
 vars_of_interest <- c("EE_BC1", "ET_BC1_Frio", "ET_BC1_Calor",
                       "EE_BC2", "ET_BC2_Frio", "ET_BC2_Calor",
-                      "EE_BC3", "ET_BC3_Frio", "ET_BC3_Calor")
+                      "EE_BC3", "ET_BC3_Frio", "ET_BC3_Calor",
+                      "EE_BC1_TER","EE_BC2_TER")
 
 # Remove zero values from specified columns
 data[vars_of_interest] <- lapply(data[vars_of_interest], function(x) ifelse(x == 0, NA, x))

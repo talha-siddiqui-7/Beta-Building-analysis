@@ -689,48 +689,6 @@ for (hp in heat_pumps) {
   plot_and_save_thermal_vs_cop(data, paste0("COP_", hp), paste0("ET_", hp, "_Calor_actual"), plot_dir)
 }
 
-# Function to plot and save combined Thermal Load vs COP with different prefixes
-plot_and_save_combined_thermal_vs_cop <- function(data, prefixes, cop_variable, thermal_variable, plot_title, plot_dir) {
-  # Create an empty data frame to store combined data
-  combined_data <- data.frame()
-  
-  # Iterate over each prefix
-  for (prefix in prefixes) {
-    # Combine data for COP and thermal load
-    temp_data_frio <- data %>%
-      select(!!sym(paste0(cop_variable, "_", prefix)), !!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual"))) %>%
-      rename(COP = !!sym(paste0(cop_variable, "_", prefix)),
-             Thermal_Load = !!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual"))) %>%
-      mutate(Heat_Pump = paste0("Frio_", prefix))
-    
-    temp_data_calor <- data %>%
-      select(!!sym(paste0(cop_variable, "_", prefix)), !!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual"))) %>%
-      rename(COP = !!sym(paste0(cop_variable, "_", prefix)),
-             Thermal_Load = !!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual"))) %>%
-      mutate(Heat_Pump = paste0("Calor_", prefix))
-    
-    # Combine data
-    combined_data <- bind_rows(combined_data, temp_data_frio, temp_data_calor)
-  }
-  
-  # Plot the combined data
-  plot <- ggplot(combined_data, aes(x = Thermal_Load, y = COP, color = Heat_Pump)) +
-    geom_point() +
-    labs(x = "Thermal Load", y = "COP", title = plot_title)
-  
-  # Print the plot
-  print(plot)
-  
-  # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste(plot_title, "_combined.png")), plot)
-  
-  # Return the combined data frame
-  return(combined_data)
-}
-
-# Call the function to plot and save combined Thermal Load vs COP data
-combined_thermal_vs_cop <- plot_and_save_combined_thermal_vs_cop(data, heat_pumps, "COP", "ET", "Combined Thermal Load vs COP", plot_dir)
-
 # Function to plot and save Aggregated Thermal Load vs COP
 plot_and_save_aggregated_thermal_vs_cop <- function(data, cop_col, thermal_col, plot_dir, aggregation = "hourly") {
   # Aggregate data based on the specified aggregation level
