@@ -670,6 +670,162 @@ plot_hp2_cooling_cdd_monthly_existing <- ggplot(energy_signature_data, aes(x = C
 # Display and save the plot
 create_and_save_plot(plot_hp2_cooling_cdd_monthly_existing, "plot_hp2_cooling_cdd_monthly_existing.png", plot_dir, y_limits_cooling)
 
+# THERMAL LOAD VS COP
+# Function to plot and save Thermal Load vs COP (as per date)
+plot_and_save_thermal_vs_cop <- function(data, cop_col, thermal_col, plot_dir) {
+  # Combine COP and thermal load data
+  plot <- ggplot(data, aes(x = !!sym(thermal_col), y = !!sym(cop_col))) +
+    geom_point() +
+    labs(x = thermal_col, y = cop_col, title = paste(thermal_col, "vs", cop_col))
+  
+  ggsave(file.path(plot_dir, paste(thermal_col, "_vs_", cop_col, ".png")), plot)
+  print(plot)
+}
+
+# Plot and save Thermal Load vs COP for each heat pump
+heat_pumps <- c("BC1", "BC2", "BC3")
+for (hp in heat_pumps) {
+  plot_and_save_thermal_vs_cop(data, paste0("COP_", hp), paste0("ET_", hp, "_Frio_actual"), plot_dir)
+  plot_and_save_thermal_vs_cop(data, paste0("COP_", hp), paste0("ET_", hp, "_Calor_actual"), plot_dir)
+}
+
+# Function to plot and save combined Thermal Load vs COP with different prefixes
+plot_and_save_combined_thermal_vs_cop <- function(data, prefixes, cop_variable, thermal_variable, plot_title, plot_dir) {
+  # Create an empty data frame to store combined data
+  combined_data <- data.frame()
+  
+  # Iterate over each prefix
+  for (prefix in prefixes) {
+    # Combine data for COP and thermal load
+    temp_data_frio <- data %>%
+      select(!!sym(paste0(cop_variable, "_", prefix)), !!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual"))) %>%
+      rename(COP = !!sym(paste0(cop_variable, "_", prefix)),
+             Thermal_Load = !!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual"))) %>%
+      mutate(Heat_Pump = paste0("Frio_", prefix))
+    
+    temp_data_calor <- data %>%
+      select(!!sym(paste0(cop_variable, "_", prefix)), !!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual"))) %>%
+      rename(COP = !!sym(paste0(cop_variable, "_", prefix)),
+             Thermal_Load = !!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual"))) %>%
+      mutate(Heat_Pump = paste0("Calor_", prefix))
+    
+    # Combine data
+    combined_data <- bind_rows(combined_data, temp_data_frio, temp_data_calor)
+  }
+  
+  # Plot the combined data
+  plot <- ggplot(combined_data, aes(x = Thermal_Load, y = COP, color = Heat_Pump)) +
+    geom_point() +
+    labs(x = "Thermal Load", y = "COP", title = plot_title)
+  
+  # Print the plot
+  print(plot)
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste(plot_title, "_combined.png")), plot)
+  
+  # Return the combined data frame
+  return(combined_data)
+}
+
+# Call the function to plot and save combined Thermal Load vs COP data
+combined_thermal_vs_cop <- plot_and_save_combined_thermal_vs_cop(data, heat_pumps, "COP", "ET", "Combined Thermal Load vs COP", plot_dir)
+
+# Function to plot and save Aggregated Thermal Load vs COP
+plot_and_save_aggregated_thermal_vs_cop <- function(data, cop_col, thermal_col, plot_dir, aggregation = "hourly") {
+  # Aggregate data based on the specified aggregation level
+  if (aggregation == "hourly") {
+    data$Hour <- format(data$Date, "%Y-%m-%d %H:00:00")
+    aggregated_data <- data %>%
+      group_by(Hour) %>%
+      summarize(COP = mean(!!sym(cop_col), na.rm = TRUE),
+                Thermal_Load = mean(!!sym(thermal_col), na.rm = TRUE))
+  } else if (aggregation == "daily") {
+    data$Day <- format(data$Date, "%Y-%m-%d")
+    aggregated_data <- data %>%
+      group_by(Day) %>%
+      summarize(COP = mean(!!sym(cop_col), na.rm = TRUE),
+                Thermal_Load = mean(!!sym(thermal_col), na.rm = TRUE))
+  }
+  
+  # Plot aggregated data
+  plot <- ggplot(aggregated_data, aes(x = Thermal_Load, y = COP)) +
+    geom_point() +
+    labs(x = paste(aggregation, thermal_col), y = cop_col, title = paste(aggregation, thermal_col, "vs", cop_col))
+  
+  ggsave(file.path(plot_dir, paste(aggregation, thermal_col, "_vs_", cop_col, ".png")), plot)
+  print(plot)
+}
+
+# Plot and save Aggregated Thermal Load vs COP for each heat pump
+heat_pumps <- c("BC1", "BC2", "BC3")
+aggregation_levels <- c("hourly", "daily")
+for (hp in heat_pumps) {
+  for (agg in aggregation_levels) {
+    plot_and_save_aggregated_thermal_vs_cop(data, paste0("COP_", hp), paste0("ET_", hp, "_Frio_actual"), plot_dir, aggregation = agg)
+    plot_and_save_aggregated_thermal_vs_cop(data, paste0("COP_", hp), paste0("ET_", hp, "_Calor_actual"), plot_dir, aggregation = agg)
+  }
+}
+
+# Function to plot and save combined Aggregated Thermal Load vs COP with different prefixes
+plot_and_save_combined_aggregated_thermal_vs_cop <- function(data, prefixes, cop_variable, thermal_variable, plot_title, plot_dir, aggregation = "hourly") {
+  # Create an empty data frame to store combined data
+  combined_data <- data.frame()
+  
+  # Iterate over each prefix
+  for (prefix in prefixes) {
+    if (aggregation == "hourly") {
+      data$Hour <- format(data$Date, "%Y-%m-%d %H:00:00")
+      temp_data_frio <- data %>%
+        group_by(Hour) %>%
+        summarize(COP = mean(!!sym(paste0(cop_variable, "_", prefix)), na.rm = TRUE),
+                  Thermal_Load = mean(!!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual")), na.rm = TRUE)) %>%
+        mutate(Heat_Pump = paste0("Frio_", prefix))
+      
+      temp_data_calor <- data %>%
+        group_by(Hour) %>%
+        summarize(COP = mean(!!sym(paste0(cop_variable, "_", prefix)), na.rm = TRUE),
+                  Thermal_Load = mean(!!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual")), na.rm = TRUE)) %>%
+        mutate(Heat_Pump = paste0("Calor_", prefix))
+    } else if (aggregation == "daily") {
+      data$Day <- format(data$Date, "%Y-%m-%d")
+      temp_data_frio <- data %>%
+        group_by(Day) %>%
+        summarize(COP = mean(!!sym(paste0(cop_variable, "_", prefix)), na.rm = TRUE),
+                  Thermal_Load = mean(!!sym(paste0(thermal_variable, "_", prefix, "_Frio_actual")), na.rm = TRUE)) %>%
+        mutate(Heat_Pump = paste0("Frio_", prefix))
+      
+      temp_data_calor <- data %>%
+        group_by(Day) %>%
+        summarize(COP = mean(!!sym(paste0(cop_variable, "_", prefix)), na.rm = TRUE),
+                  Thermal_Load = mean(!!sym(paste0(thermal_variable, "_", prefix, "_Calor_actual")), na.rm = TRUE)) %>%
+        mutate(Heat_Pump = paste0("Calor_", prefix))
+    }
+    
+    # Combine data
+    combined_data <- bind_rows(combined_data, temp_data_frio, temp_data_calor)
+  }
+  
+  # Plot the combined data
+  plot <- ggplot(combined_data, aes(x = Thermal_Load, y = COP, color = Heat_Pump)) +
+    geom_point() +
+    labs(x = "Thermal Load", y = "COP", title = plot_title)
+  
+  # Print the plot
+  print(plot)
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste(plot_title, "_combined_", aggregation, ".png")), plot)
+  
+  # Return the combined data frame
+  return(combined_data)
+}
+
+# Call the function to plot and save combined Aggregated Thermal Load vs COP data
+for (agg in aggregation_levels) {
+  combined_aggregated_thermal_vs_cop <- plot_and_save_combined_aggregated_thermal_vs_cop(data, heat_pumps, "COP", "ET", "Combined Aggregated Thermal Load vs COP", plot_dir, aggregation = agg)
+}
+
 # Linear regression for Heating Load vs HDD
 heating_lm <- lm(Total_Heating_Load ~ HDD, data = energy_signature_data)
 
