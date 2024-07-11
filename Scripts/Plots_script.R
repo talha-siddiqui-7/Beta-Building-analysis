@@ -145,7 +145,9 @@ for (prefix in prefixes) {
     summarize(
       EE_hourly = mean(!!sym(paste0("EE_", prefix, "_actual")), na.rm = TRUE),
       ET_Frio_hourly = mean(!!sym(paste0("ET_", prefix, "_Frio_actual")), na.rm = TRUE),
-      ET_Calor_hourly = mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE)
+      ET_Calor_hourly = mean(!!sym(paste0("ET_", prefix, "_Calor_actual")), na.rm = TRUE),
+      T_SAL_hourly = mean(!!sym(paste0("T_SAL_", prefix)), na.rm = TRUE),
+      T_ENT_hourly = mean(!!sym(paste0("T_ENT_", prefix)), na.rm = TRUE)
     ) %>%
     mutate(Heat_Pump = prefix)
   
@@ -231,6 +233,25 @@ plot_EE_TER <- ggplot(hourly_data_TER_combined, aes(x = Hour, y = EE_TER_hourly,
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
 
+# Plot T_SAL and T_ENT in the same plot for each prefix
+plot_temperature <- function(prefix) {
+  data_filtered <- hourly_data_combined %>% filter(Heat_Pump == prefix)
+  
+  ggplot(data_filtered, aes(x = Hour)) +
+    geom_line(aes(y = T_SAL_hourly, color = "T_SAL")) +
+    geom_line(aes(y = T_ENT_hourly, color = "T_ENT")) +
+    facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
+    labs(x = "Hour", y = "Temperature (°C)", title = paste("Hourly T_SAL and T_ENT by Weekday/Weekend for", prefix)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(size = 10)) +  # Set the font size of the plot title
+    scale_color_manual(values = c("T_SAL" = "blue", "T_ENT" = "red"), name = "Temperature Type")
+}
+
+plot_temperature_BC1 <- plot_temperature("BC1")
+plot_temperature_BC2 <- plot_temperature("BC2")
+plot_temperature_BC3 <- plot_temperature("BC3")
+
 # Save and display the combined plots
 ggsave(file.path(plot_dir, "EE_hourly_combined_plot.png"), plot = plot_EE)
 print(plot_EE)  # Display the EE plot
@@ -243,6 +264,15 @@ print(plot_ET_Calor)  # Display the ET_Calor plot
 
 ggsave(file.path(plot_dir, "EE_TER_hourly_combined_plot.png"), plot = plot_EE_TER)
 print(plot_EE_TER)  # Display the EE_TER plot
+
+ggsave(file.path(plot_dir, "Temperature_hourly_BC1_plot.png"), plot = plot_temperature_BC1)
+print(plot_temperature_BC1)  # Display the temperature plot for BC1
+
+ggsave(file.path(plot_dir, "Temperature_hourly_BC2_plot.png"), plot = plot_temperature_BC2)
+print(plot_temperature_BC2)  # Display the temperature plot for BC2
+
+ggsave(file.path(plot_dir, "Temperature_hourly_BC3_plot.png"), plot = plot_temperature_BC3)
+print(plot_temperature_BC3)  # Display the temperature plot for BC3
 
 # Day of the week plots
 # Filter out rows with NA in Date column
