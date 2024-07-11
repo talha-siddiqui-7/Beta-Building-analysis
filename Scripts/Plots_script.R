@@ -43,12 +43,14 @@ data$Hour <- hour(data$Date)
 
 # Find maximum y-axis values for each category
 max_EE <- max(data$EE_BC1_actual, data$EE_BC2_actual, na.rm = TRUE)
-max_ET_Frio <- max(data$ET_BC1_Frio_actual, data$ET_BC2_Frio_actual, na.rm = TRUE)
+max_EE_TER <- max(data$EE_BC1_TER_actual, data$EE_BC2_TER_actual, na.rm = TRUE)
+max_ET_Frio <- max(data$ET_BC1_Frio_actual, data$ET_BC2_Frio_actual,  na.rm = TRUE)
 max_ET_Calor <- max(data$ET_BC1_Calor_actual, data$ET_BC2_Calor_actual, na.rm = TRUE)
 
 # Set the y-axis limits for each category
 y_limits <- list(
   EE = c(0, max_EE),
+  EE_TER = c(0, max_EE_TER),
   ET_Frio = c(0, max_ET_Frio),
   ET_Calor = c(0, max_ET_Calor)
 )
@@ -93,9 +95,30 @@ plot_and_save_image <- function(data, prefix, plot_dir, y_limits) {
   print(et_calor_plot)
 }
 
+# Function to plot and save images for the TER variables
+plot_and_save_TER_image <- function(data, prefix, plot_dir, y_limits) {
+  
+  # Plot EE_BC_TER vs Date
+  ee_ter_plot <- ggplot(data, aes(x = Date, y = !!sym(paste0("EE_BC", prefix, "_TER_actual")))) +
+    geom_point() +
+    ylim(y_limits$EE_TER) +
+    scale_x_datetime(date_labels = "%b %Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Date", y = paste("EE_BC", prefix, "_TER (kWh)"), title = paste("EE_BC", prefix, "_TER vs Date"))
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste("EE_BC", prefix, "_TER_vs_Date.png")), ee_ter_plot)
+  print(ee_ter_plot)
+}
+
 # Plot and save images for each heat pump
 for (i in 1:3) {
   plot_and_save_image(data, i, plot_dir, y_limits)
+}
+
+# Plot and save images for the TER variables
+for (i in 1:2) {
+  plot_and_save_TER_image(data, i, plot_dir, y_limits)
 }
 
 # Making hourly plots of all heat pumps against EE, ET_Frio, ET_Calor
@@ -130,6 +153,26 @@ for (prefix in prefixes) {
   hourly_data_combined <- bind_rows(hourly_data_combined, hourly_data)
 }
 
+# Create an empty data frame to store hourly data for TER variables
+hourly_data_TER_combined <- data.frame()
+
+# Define TER prefixes
+ter_prefixes <- c("BC1", "BC2")
+
+# Iterate over each TER prefix to calculate hourly values
+for (prefix in ter_prefixes) {
+  # Aggregate data by Hour, DayType, and Heat_Pump
+  hourly_data_TER <- data %>%
+    group_by(Hour, DayType) %>%
+    summarize(
+      EE_TER_hourly = mean(!!sym(paste0("EE_", prefix, "_TER_actual")), na.rm = TRUE)
+    ) %>%
+    mutate(Heat_Pump = prefix)
+  
+  # Combine hourly data
+  hourly_data_TER_combined <- bind_rows(hourly_data_TER_combined, hourly_data_TER)
+}
+
 # Filter out extreme values (outliers) for better visualization
 hourly_data_combined <- hourly_data_combined %>%
   filter(ET_Calor_hourly < 30 & ET_Calor_hourly > -10)  # Adjust the threshold as needed
@@ -138,12 +181,14 @@ hourly_data_combined <- hourly_data_combined %>%
 max_EE <- max(hourly_data_combined$EE_hourly, na.rm = TRUE)
 max_ET_Frio <- max(hourly_data_combined$ET_Frio_hourly, na.rm = TRUE)
 max_ET_Calor <- max(hourly_data_combined$ET_Calor_hourly, na.rm = TRUE)
+max_EE_TER <- max(hourly_data_TER_combined$EE_TER_hourly, na.rm = TRUE)
 
 # Set the y-axis limits for each category
 y_limits <- list(
   EE = c(0, max_EE),
   ET_Frio = c(0, max_ET_Frio),
-  ET_Calor = c(0, max_ET_Calor)
+  ET_Calor = c(0, max_ET_Calor),
+  EE_TER = c(0, max_EE_TER)
 )
 
 # Plot EE_actual vs Hour with line plot for all prefixes, distinguishing by DayType
@@ -151,7 +196,7 @@ plot_EE <- ggplot(hourly_data_combined, aes(x = Hour, y = EE_hourly, color = Hea
   geom_line(size = 1.5) +  # Increase line thickness
   facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
   ylim(y_limits$EE) +
-  labs(x = "Hour", y = "EE (kwh)", title = "Hourly EE by Weekday/Weekend for BC1, BC2, and BC3") +
+  labs(x = "Hour", y = "EE (kWh)", title = "Hourly EE by Weekday/Weekend for BC1, BC2, and BC3") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -161,7 +206,7 @@ plot_ET_Frio <- ggplot(hourly_data_combined, aes(x = Hour, y = ET_Frio_hourly, c
   geom_line(size = 1.5) +  # Increase line thickness
   facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
   ylim(y_limits$ET_Frio) +
-  labs(x = "Hour", y = "ET_Frio (kwh)", title = "Hourly ET_Frio by Weekday/Weekend for BC1, BC2, and BC3") +
+  labs(x = "Hour", y = "ET_Frio (kWh)", title = "Hourly ET_Frio by Weekday/Weekend for BC1, BC2, and BC3") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -171,7 +216,17 @@ plot_ET_Calor <- ggplot(hourly_data_combined, aes(x = Hour, y = ET_Calor_hourly,
   geom_line(size = 1.5) +  # Increase line thickness
   facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
   ylim(y_limits$ET_Calor) +
-  labs(x = "Hour", y = "ET_Calor (kwh)", title = "Hourly ET_Calor by Weekday/Weekend for BC1, BC2, and BC3") +
+  labs(x = "Hour", y = "ET_Calor (kWh)", title = "Hourly ET_Calor by Weekday/Weekend for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Plot EE_TER_actual vs Hour with line plot for TER prefixes, distinguishing by DayType
+plot_EE_TER <- ggplot(hourly_data_TER_combined, aes(x = Hour, y = EE_TER_hourly, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  facet_wrap(~DayType) +  # Separate plots by DayType (Weekday vs Weekend)
+  ylim(y_limits$EE_TER) +
+  labs(x = "Hour", y = "EE_TER (kWh)", title = "Hourly EE_TER by Weekday/Weekend for BC1 and BC2") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -186,7 +241,10 @@ print(plot_ET_Frio)  # Display the ET_Frio plot
 ggsave(file.path(plot_dir, "ET_Calor_hourly_combined_plot.png"), plot = plot_ET_Calor)
 print(plot_ET_Calor)  # Display the ET_Calor plot
 
-# Plots for day of the week
+ggsave(file.path(plot_dir, "EE_TER_hourly_combined_plot.png"), plot = plot_EE_TER)
+print(plot_EE_TER)  # Display the EE_TER plot
+
+# Day of the week plots
 # Filter out rows with NA in Date column
 data <- data[!is.na(data$Date), ]
 
@@ -215,26 +273,49 @@ for (prefix in prefixes) {
   daily_data_combined <- bind_rows(daily_data_combined, daily_data)
 }
 
+# Create a data frame to store daily data for TER variables
+daily_data_TER_combined <- data.frame()
+
+# Define TER prefixes
+ter_prefixes <- c("BC1", "BC2")
+
+# Iterate over each TER prefix to calculate daily values
+for (prefix in ter_prefixes) {
+  # Aggregate data by day of the week
+  daily_data_TER <- data %>%
+    group_by(DayOfWeek) %>%
+    summarize(
+      EE_TER_daily = mean(!!sym(paste0("EE_", prefix, "_TER_actual")), na.rm = TRUE)
+    ) %>%
+    mutate(Heat_Pump = prefix)
+  
+  # Combine daily data
+  daily_data_TER_combined <- bind_rows(daily_data_TER_combined, daily_data_TER)
+}
+
 # Sort by DayOfWeek to ensure correct line connections
 daily_data_combined <- daily_data_combined[order(match(daily_data_combined$DayOfWeek, c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))), ]
+daily_data_TER_combined <- daily_data_TER_combined[order(match(daily_data_TER_combined$DayOfWeek, c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))), ]
 
 # Find maximum y-axis values for each category
 max_EE <- max(daily_data_combined$EE_daily, na.rm = TRUE)
 max_ET_Frio <- max(daily_data_combined$ET_Frio_daily, na.rm = TRUE)
 max_ET_Calor <- max(daily_data_combined$ET_Calor_daily, na.rm = TRUE)
+max_EE_TER <- max(daily_data_TER_combined$EE_TER_daily, na.rm = TRUE)
 
 # Set the y-axis limits for each category
 y_limits <- list(
   EE = c(0, max_EE),
   ET_Frio = c(0, max_ET_Frio),
-  ET_Calor = c(0, max_ET_Calor)
+  ET_Calor = c(0, max_ET_Calor),
+  EE_TER = c(0, max_EE_TER)
 )
 
 # Plot EE_actual vs Day of the week with line plot for all prefixes
 plot_EE <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = EE_daily, color = Heat_Pump, group = Heat_Pump)) +
   geom_line(size = 1.5) +  # Increase line thickness
   ylim(y_limits$EE) +
-  labs(x = "Day of the Week", y = "EE (kwh)", title = "Daily EE for BC1, BC2, and BC3") +
+  labs(x = "Day of the Week", y = "EE (kWh)", title = "Daily EE for BC1, BC2, and BC3") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -243,7 +324,7 @@ plot_EE <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = EE_daily, color = 
 plot_ET_Frio <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = ET_Frio_daily, color = Heat_Pump, group = Heat_Pump)) +
   geom_line(size = 1.5) +  # Increase line thickness
   ylim(y_limits$ET_Frio) +
-  labs(x = "Day of the Week", y = "ET_Frio (kwh)", title = "Daily ET_Frio for BC1, BC2, and BC3") +
+  labs(x = "Day of the Week", y = "ET_Frio (kWh)", title = "Daily ET_Frio for BC1, BC2, and BC3") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -252,7 +333,16 @@ plot_ET_Frio <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = ET_Frio_daily
 plot_ET_Calor <- ggplot(daily_data_combined, aes(x = DayOfWeek, y = ET_Calor_daily, color = Heat_Pump, group = Heat_Pump)) +
   geom_line(size = 1.5) +  # Increase line thickness
   ylim(y_limits$ET_Calor) +
-  labs(x = "Day of the Week", y = "ET_Calor (kwh)", title = "Daily ET_Calor for BC1, BC2, and BC3") +
+  labs(x = "Day of the Week", y = "ET_Calor (kWh)", title = "Daily ET_Calor for BC1, BC2, and BC3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))  # Set the font size of the plot title
+
+# Plot EE_TER_actual vs Day of the week with line plot for TER prefixes
+plot_EE_TER <- ggplot(daily_data_TER_combined, aes(x = DayOfWeek, y = EE_TER_daily, color = Heat_Pump, group = Heat_Pump)) +
+  geom_line(size = 1.5) +  # Increase line thickness
+  ylim(y_limits$EE_TER) +
+  labs(x = "Day of the Week", y = "EE_TER (kWh)", title = "Daily EE_TER for BC1 and BC2") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 10))  # Set the font size of the plot title
@@ -266,6 +356,9 @@ print(plot_ET_Frio)  # Display the ET_Frio plot
 
 ggsave(file.path(plot_dir, "ET_Calor_combined_plot.png"), plot = plot_ET_Calor)
 print(plot_ET_Calor)  # Display the ET_Calor plot
+
+ggsave(file.path(plot_dir, "EE_TER_combined_plot.png"), plot = plot_EE_TER)
+print(plot_EE_TER)  # Display the EE_TER plot
 
 #COPs calculation
 #HEAT PUMP 1
