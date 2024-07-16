@@ -287,13 +287,13 @@ data$Hour <- as.numeric(format(data$Date, "%H"))
 
 # Function to aggregate data by hour
 aggregate_data <- function(data, prefix) {
-  ee_col <- paste0("EE_BC", prefix, "_actual")
+  et_calor_col <- paste0("ET_BC", prefix, "_Calor_actual")
   delta_col <- paste0("Delta", prefix)
   
   aggregated_data <- data %>%
     group_by(Hour) %>%
     summarize(
-      EE_hourly = mean(get(ee_col), na.rm = TRUE),
+      ET_Calor_hourly = mean(get(et_calor_col), na.rm = TRUE),
       Delta_hourly = mean(get(delta_col), na.rm = TRUE)
     ) %>%
     mutate(Heat_Pump = factor(prefix, levels = 1:3))
@@ -314,11 +314,11 @@ for (i in 1:3) {
 aggregated_data_combined$Hour <- as.factor(aggregated_data_combined$Hour)
 aggregated_data_combined$Heat_Pump <- as.factor(aggregated_data_combined$Heat_Pump)
 
-# Determine the maximum value of EE_hourly across all plots
-max_y <- max(aggregated_data_combined$EE_hourly, na.rm = TRUE)
+# Check the aggregated data
+print(head(aggregated_data_combined))
 
-# Function to plot and save aggregated images for specific Delta and EE_BC_actual variables
-plot_and_save_aggregated_delta_ee_image <- function(aggregated_data_combined, prefix, plot_dir, max_y) {
+# Function to plot and save aggregated images for specific Delta and ET_BC_Calor variables
+plot_and_save_aggregated_delta_calor_image <- function(aggregated_data_combined, prefix, plot_dir) {
   
   # Filter data for the specific prefix
   data_filtered <- aggregated_data_combined %>% filter(Heat_Pump == factor(prefix, levels = 1:3))
@@ -327,27 +327,25 @@ plot_and_save_aggregated_delta_ee_image <- function(aggregated_data_combined, pr
   print(paste("Filtered data for BC", prefix, ":", sep = ""))
   print(head(data_filtered))
   
-  # Plot EE_BC vs Delta
-  ee_plot <- ggplot(data_filtered, aes(x = Delta_hourly, y = EE_hourly, color = Hour)) +
+  # Plot ET_BC_Calor vs Delta
+  et_calor_plot <- ggplot(data_filtered, aes(x = Delta_hourly, y = ET_Calor_hourly, color = Hour)) +
     geom_point() +
-    ylim(0, max_y) +  # Set y-axis limit to the maximum value
-    labs(x = paste("Delta", prefix), y = paste("EE_BC", prefix, "_actual (kWh)"), 
-         title = paste("Hourly EE_BC", prefix, "_actual vs Delta", prefix)) +
+    labs(x = paste("Delta", prefix), y = paste("ET_BC", prefix, "_Calor_actual (kWh)"), 
+         title = paste("Hourly ET_BC", prefix, "_Calor_actual vs Delta", prefix)) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           plot.title = element_text(size = 10),  # Set the font size of the plot title
           legend.title = element_blank())
   
   # Save the plot as a PNG file
-  ggsave(file.path(plot_dir, paste("EE_BC", prefix, "_vs_Delta", prefix, "_hourly.png")), ee_plot)
-  print(ee_plot)
+  ggsave(file.path(plot_dir, paste("ET_BC", prefix, "_Calor_vs_Delta", prefix, "_hourly.png")), et_calor_plot)
+  print(et_calor_plot)
 }
 
 # Plot and save aggregated images for each heat pump
 for (i in 1:3) {
-  plot_and_save_aggregated_delta_ee_image(aggregated_data_combined, i, plot_dir, max_y)
+  plot_and_save_aggregated_delta_calor_image(aggregated_data_combined, i, plot_dir)
 }
-
 #ELECTRICAL LOAD VS DELTA
 # Filter out rows with NA in Date column
 data <- data[!is.na(data$Date), ]
@@ -543,21 +541,18 @@ print(plot_EE_TER)  # Display the EE_TER plot
 # Calculate COP for BC1
 data$COP_BC1 <- (data$ET_BC1_Frio_actual + data$ET_BC1_Calor_actual) / data$EE_BC1_actual
 
-#HEAT PUMP 2
-
-# Calculate COP for BC2
-data$COP_BC2 <- (data$ET_BC2_Frio_actual + data$ET_BC2_Calor_actual) / data$EE_BC2_actual
-
 # Replace 'inf' values with the median value of COP_BC1
 median_cop_bc1 <- median(data$COP_BC1, na.rm = TRUE)
 data$COP_BC1[is.infinite(data$COP_BC1)] <- median_cop_bc1
+
+# Calculate COP for BC2
+data$COP_BC2 <- (data$ET_BC2_Frio_actual + data$ET_BC2_Calor_actual) / data$EE_BC2_actual
 
 # Replace 'inf' values with the median value of COP_BC2
 median_cop_bc2 <- median(data$COP_BC2, na.rm = TRUE)
 data$COP_BC2[is.infinite(data$COP_BC2)] <- median_cop_bc2
 
-#HEAT PUMP 3
-
+# Calculate COP for BC3
 data$COP_BC3 <- (data$ET_BC3_Frio_actual + data$ET_BC3_Calor_actual) / data$EE_BC3_actual
 
 # Calculate IQR and identify outliers for each COP column
@@ -575,6 +570,40 @@ for (col in cols_to_check) {
     median_cop <- median(data[[col]], na.rm = TRUE)
     data[[col]][outliers] <- median_cop  # Replace outliers with median
   }
+}
+
+# Plotting COP vs Delta for each heat pump
+plot_cop_delta <- function(data, prefix, plot_dir) {
+  cop_col <- paste0("COP_BC", prefix)
+  delta_col <- paste0("Delta", prefix)
+  
+  # Check if the columns exist in the data
+  if (!(cop_col %in% colnames(data) && delta_col %in% colnames(data))) {
+    stop(paste("Columns", cop_col, "or", delta_col, "do not exist in the dataset."))
+  }
+  
+  plot_data <- data %>%
+    select(all_of(c(delta_col, cop_col))) %>%
+    na.omit()  # Remove rows with NA values
+  
+  # Plot COP vs Delta
+  cop_delta_plot <- ggplot(plot_data, aes_string(x = delta_col, y = cop_col)) +
+    geom_point() +
+    labs(x = paste("Delta", prefix), y = paste("COP BC", prefix), 
+         title = paste("COP BC", prefix, "vs Delta", prefix)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(size = 10),  # Set the font size of the plot title
+          legend.title = element_blank())
+  
+  # Save the plot as a PNG file
+  ggsave(file.path(plot_dir, paste("COP_BC", prefix, "_vs_Delta", prefix, ".png")), cop_delta_plot)
+  print(cop_delta_plot)
+}
+
+# Plot and save COP vs Delta for each heat pump
+for (i in 1:3) {
+  plot_cop_delta(data, i, plot_dir)
 }
 
 # PLOTS COP vs Date
