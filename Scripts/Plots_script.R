@@ -1110,3 +1110,21 @@ cooling_B_cdd
 cat("Heating Load vs HDD equation: ET = ", heating_A_hdd, " + ", heating_B_hdd, " * HDD\n")
 cat("Cooling Load vs CDD equation: ET = ", cooling_A_cdd, " + ", cooling_B_cdd, " * CDD\n")
 
+# Calculate ET using the given equation
+energy_signature_data$ET <- 906.8683 + 121.6564 * energy_signature_data$HDD
+
+# Updated function to create and save a plot with uniform y-axis limits
+create_and_save_plot <- function(plot, filename, plot_dir) {
+  ggsave(file.path(plot_dir, filename), plot)
+  print(plot)
+}
+
+# Plot ET and Total_Heating_Load against Date
+plot_ET <- ggplot(energy_signature_data, aes(x = Date)) +
+  geom_line(aes(y = ET, color = "Predicted")) +
+  geom_line(aes(y = Total_Heating_Load, color = "Actual")) +
+  labs(x = "Date", y = "Energy Total (ET)", title = "Energy Total (ET) vs Date") +
+  scale_color_manual(name = "Lines", values = c(Predicted = "blue", Actual = "red"))
+
+# Display and save the plot
+create_and_save_plot(plot_ET, "plot_ET_with_heating_load.png", plot_dir)
