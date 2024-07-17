@@ -27,13 +27,11 @@ if (!file.exists(data_file)) {
 data <- read.csv(data_file)
 
 # Read weather data file
-weather_file_list <- list.files(DIR_WEATHER, full.names = TRUE)
-if (length(weather_file_list) == 0) {
-  stop("No files found in the weather directory.")
-} else {
-  weather_file_path <- weather_file_list[1]
-  weather_data <- read.csv(weather_file_path)
+weather_data_file <- file.path(DIR_WEATHER, "C03A_2024_combined.csv")
+if (!file.exists(weather_data_file)) {
+  stop("csv file not found in the data directory.")
 }
+  weather_data <- read.csv(weather_data_file)
 
 # Convert 'Date' column to POSIXct object to include both date and time
 data$Date <- as.POSIXct(data$Date, format = "%Y-%m-%d %H:%M", tz = "UTC")
@@ -764,8 +762,11 @@ ggsave(file.path(plot_dir, "daily_E_Consumption_comparision.png"), daily_plot_co
 print(daily_plot_comparison)
 
 # Energy signature analysis
-# Convert Dia column to Date format 
-weather_data$Dia <- as.Date(weather_data$Dia)
+# Read the CSV file into a data frame, forcing 'Dia' to character format
+weather_data <- read.csv(weather_data_file, stringsAsFactors = FALSE, colClasses = c(Dia = "character"))
+
+# Convert 'Dia' column to Date format with correct format string
+weather_data$Dia <- as.Date(weather_data$Dia, format = "%d/%m/%Y")
 
 # Aggregate the daily average temperature
 daily_avg_temp <- weather_data %>%
@@ -779,35 +780,38 @@ base_temperature <- 18.3  # 65°F
 daily_avg_temp$HDD <- pmax(base_temperature - daily_avg_temp$Avg_Temperature, 0)
 daily_avg_temp$CDD <- pmax(daily_avg_temp$Avg_Temperature - base_temperature, 0)
 
+#Correcting the date format
+daily_avg_temp$Dia <- format(as.Date(daily_avg_temp$Dia), "%Y-%m-%d")
+
 # This code is only added until updated data can be received from EUSKALMET
 ################################################################################
 # Define the file name for the 'HDD_CDD Data' CSV
-file_hdd_cdd <- file.path(DIR_WEATHER, "HDD_CDD Data.csv")
-
-# Read the data from the CSV file
-hdd_cdd_data <- read.csv(file_hdd_cdd)
-
-# Convert the Date column in hdd_cdd_data to Date type
-hdd_cdd_data$Date <- as.Date(hdd_cdd_data$Date)
-
-# Ensure the Date column in daily_avg_temp is of Date type
-daily_avg_temp$Dia <- as.Date(daily_avg_temp$Dia)
-
-# Find the last date in the daily_avg_temp data
-last_date_daily_avg_temp <- max(daily_avg_temp$Dia, na.rm = TRUE)
-
-# Filter the hdd_cdd_data to include only new dates
-new_data <- subset(hdd_cdd_data, Date > last_date_daily_avg_temp)
-
-# Select only the relevant columns and rename them to match those in daily_avg_temp
-new_data <- new_data %>%
-  select(Date, HDD, CDD) %>%
-  rename(Dia = Date)
-
-# Append the new data to daily_avg_temp (ignoring Avg_Temperature column)
-daily_avg_temp <- daily_avg_temp %>%
-  select(Dia, HDD, CDD) %>%
-  bind_rows(new_data)
+# file_hdd_cdd <- file.path(DIR_WEATHER, "HDD_CDD Data.csv")
+# 
+# # Read the data from the CSV file
+# hdd_cdd_data <- read.csv(file_hdd_cdd)
+# 
+# # Convert the Date column in hdd_cdd_data to Date type
+# hdd_cdd_data$Date <- as.Date(hdd_cdd_data$Date)
+# 
+# # Ensure the Date column in daily_avg_temp is of Date type
+# daily_avg_temp$Dia <- as.Date(daily_avg_temp$Dia)
+# 
+# # Find the last date in the daily_avg_temp data
+# last_date_daily_avg_temp <- max(daily_avg_temp$Dia, na.rm = TRUE)
+# 
+# # Filter the hdd_cdd_data to include only new dates
+# new_data <- subset(hdd_cdd_data, Date > last_date_daily_avg_temp)
+# 
+# # Select only the relevant columns and rename them to match those in daily_avg_temp
+# new_data <- new_data %>%
+#   select(Date, HDD, CDD) %>%
+#   rename(Dia = Date)
+# 
+# # Append the new data to daily_avg_temp (ignoring Avg_Temperature column)
+# daily_avg_temp <- daily_avg_temp %>%
+#   select(Dia, HDD, CDD) %>%
+#   bind_rows(new_data)
 #################################################################################
 
 # Extract date from the datetime format
@@ -838,7 +842,6 @@ daily_total_loads <- data %>%
             Heat_Pump1_Cooling_Load = sum(Heat_Pump1_Cooling_Load, na.rm = TRUE),
             Heat_Pump2_Heating_Load = sum(Heat_Pump2_Heating_Load, na.rm = TRUE),
             Heat_Pump2_Cooling_Load = sum(Heat_Pump2_Cooling_Load, na.rm = TRUE))
-
 # Merge daily_total_loads with daily_avg_temp data frame
 energy_signature_data <- merge(daily_total_loads, daily_avg_temp, by.x = "Date", by.y = "Dia", all.x = TRUE)
 
